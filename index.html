@@ -165,6 +165,7 @@
         .progress-bar .fill { height: 100%; background: linear-gradient(90deg, var(--brand-green), #4CAF50); border-radius: 3px; width: 0%; animation: progress-anim 3s ease-in-out infinite; }
         @keyframes progress-anim { 0%{width:10%} 50%{width:70%} 100%{width:10%} }
         .progress-text { text-align: center; font-size: 0.85rem; color: var(--text-light); margin-top: 8px; }
+        .stream-progress { text-align: center; font-size: 0.8rem; color: var(--brand-green); margin-top: 6px; font-family: monospace; }
         .result-container { display: none; }
         .result-container.active { display: block; }
         .result-card { background: var(--brand-light); border: 2px solid var(--brand-green); border-radius: var(--radius); padding: 20px; }
@@ -446,7 +447,8 @@
         <button class="btn btn-primary" id="generateBtn" onclick="generatePlan()">🚀 生成学习规划</button>
         <div class="progress-container" id="progressContainer">
             <div class="progress-bar"><div class="fill"></div></div>
-            <div class="progress-text">AI正在分析学生情况并生成规划方案，请稍候...</div>
+            <div class="progress-text" id="progressText">AI正在分析学生情况并生成规划方案，请稍候...</div>
+            <div class="stream-progress" id="streamProgress" style="display:none;"></div>
         </div>
         <div class="warning-box" id="warningBox"></div>
         <div class="error-box" id="errorBox"></div>
@@ -926,83 +928,111 @@
                 ? '/api/chat/completions'
                 : `${apiUrl}/chat/completions`;
 
-            const requestBody = apiMode === 'proxy'
-                ? JSON.stringify({ apiUrl, apiKey, model, messages, temperature: 0.7, max_tokens: 8192 })
-                : JSON.stringify({ model, messages, temperature: 0.7, max_tokens: 8192 });
+            // 使用流式传输，避免大模型响应超时
+            const reqBody = apiMode === 'proxy'
+                ? { apiUrl, apiKey, model, messages, temperature: 0.7, max_tokens: 8192, stream: true }
+                : { model, messages, temperature: 0.7, max_tokens: 8192, stream: true };
 
             const fetchHeaders = { 'Content-Type': 'application/json' };
             if (apiMode !== 'proxy') {
                 fetchHeaders['Authorization'] = `Bearer ${apiKey}`;
             }
 
-            // 超时控制：120秒（AI生成规划需要较长时间）
+            // 超时控制：5分钟（流式传输，数据持续到达不会超时）
             const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 120000);
+            const timeoutId = setTimeout(() => controller.abort(), 300000);
 
-            const resp = await fetch(fullUrl, {
-                method: 'POST',
-                headers: fetchHeaders,
-                body: requestBody,
-                signal: controller.signal
-            }).catch(e => {
+            const streamProgress = document.getElementById('streamProgress');
+            const progressText = document.getElementById('progressText');
+            streamProgress.style.display = 'block';
+            streamProgress.textContent = '正在连接AI服务...';
+
+            let resp;
+            try {
+                resp = await fetch(fullUrl, {
+                    method: 'POST',
+                    headers: fetchHeaders,
+                    body: JSON.stringify(reqBody),
+                    signal: controller.signal
+                });
+            } catch (e) {
                 clearTimeout(timeoutId);
+                streamProgress.style.display = 'none';
                 if (e.name === 'AbortError') {
-                    throw new Error(`AI响应超时（>120秒）\\n请求URL: ${fullUrl}\\n可能原因：模型处理时间过长或服务负载过高，请稍后重试`);
+                    throw new Error(`AI响应超时（>5分钟）\\n请求URL: ${fullUrl}\\n可能原因：模型处理时间过长，请稍后重试`);
                 }
-                if (e.message.includes('Failed to fetch') || e.message.includes('NetworkError')) {
-                    if (apiMode === 'proxy') {
-                        throw new Error(`无法连接到本地代理服务器\\n请求路径: ${fullUrl}\\n\\n可能原因：\\n1. 代理服务器未启动\\n2. 端口被占用\\n\\n💡 请双击运行 start.bat 启动代理服务器`);
-                    }
-                    throw new Error(`无法连接到API服务\\n请求URL: ${fullUrl}\\n\\n可能原因：\\n1. API服务不可达\\n2. 浏览器CORS策略阻止了请求\\n\\n💡 建议切换到代理模式（页面左上角"切换模式"），然后双击运行 start.bat`);
-                }
-                throw e;
-            });
-
-            clearTimeout(timeoutId);
-
-            // 一次性读取响应文本（避免重复消费）
-            const rawText = await resp.text().catch(() => '');
+                throw new Error(`无法连接到服务器\\n请求URL: ${fullUrl}\\n错误: ${e.message}\\n\\n💡 请刷新页面后重试`);
+            }
 
             if (!resp.ok) {
+                clearTimeout(timeoutId);
+                streamProgress.style.display = 'none';
+                const rawText = await resp.text().catch(() => '');
                 const isHtml = rawText.trim().startsWith('<!') || rawText.trim().startsWith('<html');
                 let errSnippet = rawText.substring(0, 500);
                 if (isHtml) {
                     const titleMatch = rawText.match(/<title>([^<]*)<\/title>/i);
                     errSnippet = titleMatch ? `HTML网页（${titleMatch[1]}）` : 'HTML网页';
                 }
-                throw new Error(`API返回错误 (状态码${resp.status})\\n请求URL: ${fullUrl}\\n响应: ${errSnippet}\\n\\n${resp.status === 401 ? '👉 API Key无效或未授权' : resp.status === 404 ? '👉 模型名称或API路径不正确，请确认API URL以 /v1 结尾' : resp.status === 500 ? '👉 API服务器内部错误' : '👉 请检查API配置并点击"🔍 测试连接"诊断'}`);
+                throw new Error(`API返回错误 (状态码${resp.status})\\n请求URL: ${fullUrl}\\n响应: ${errSnippet}\\n\\n${resp.status === 401 ? '👉 API Key无效或未授权' : resp.status === 404 ? '👉 模型名称或API路径不正确' : resp.status === 502 ? '👉 代理服务器转发失败，可能是API服务超时' : '👉 请检查API配置并点击"🔍 测试连接"诊断'}`);
             }
 
-            let data;
-            try {
-                data = JSON.parse(rawText);
-            } catch (jsonErr) {
-                const isHtml = rawText.trim().startsWith('<!') || rawText.trim().startsWith('<html');
-                let diagMsg = `AI API返回了非JSON内容（状态码${resp.status})\\n请求URL: ${fullUrl}\\n`;
-                if (isHtml) {
-                    const titleMatch = rawText.match(/<title>([^<]*)<\/title>/i);
-                    const pageTitle = titleMatch ? titleMatch[1] : '未知页面';
-                    diagMsg += `\\n收到的是HTML网页（${pageTitle}）`;
-                    diagMsg += `\\n\\n🔍 常见原因：`;
-                    diagMsg += `\\n1. API URL 不正确 — 请确认以 /v1 结尾`;
-                    diagMsg += `\\n2. 代理服务器未正常转发 — 检查 server.py 控制台`;
-                    diagMsg += `\\n3. API服务返回默认页面而非模型接口`;
-                    diagMsg += `\\n\\n💡 请先点击API配置区的"🔍 测试连接"按钮诊断`;
-                } else {
-                    diagMsg += `\\n收到内容: ${rawText.substring(0, 300)}`;
+            // 读取 SSE 流
+            const reader = resp.body.getReader();
+            const decoder = new TextDecoder();
+            let fullContent = '';
+            let buffer = '';
+            let chunkCount = 0;
+            const startTime = Date.now();
+
+            if (progressText) progressText.textContent = 'AI正在生成规划方案（流式传输中）...';
+
+            while (true) {
+                const { done, value } = await reader.read();
+                if (done) break;
+
+                buffer += decoder.decode(value, { stream: true });
+                const lines = buffer.split(/\r?\n/);
+                buffer = lines.pop(); // 保留不完整的行
+
+                for (const line of lines) {
+                    const trimmed = line.trim();
+                    if (!trimmed.startsWith('data: ')) continue;
+                    const data = trimmed.slice(6);
+                    if (data === '[DONE]') continue;
+                    try {
+                        const json = JSON.parse(data);
+                        const delta = json.choices && json.choices[0] && json.choices[0].delta && json.choices[0].delta.content;
+                        if (delta) {
+                            fullContent += delta;
+                            chunkCount++;
+                            // 每10个chunk更新一次进度
+                            if (chunkCount % 10 === 0 && streamProgress) {
+                                const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
+                                streamProgress.textContent = `已接收 ${fullContent.length} 字符 | ${chunkCount} 个数据块 | ${elapsed}秒`;
+                            }
+                        }
+                    } catch (e) { /* 忽略解析错误 */ }
                 }
-                throw new Error(diagMsg);
             }
-            if (!data.choices || !data.choices[0] || !data.choices[0].message) {
-                throw new Error(`AI返回了非预期的响应格式\\n原始响应: ${JSON.stringify(data).substring(0, 300)}`);
+
+            clearTimeout(timeoutId);
+            streamProgress.style.display = 'none';
+
+            const totalElapsed = ((Date.now() - startTime) / 1000).toFixed(1);
+            console.log(`[callAI] 流式传输完成: ${fullContent.length} 字符, ${chunkCount} 块, ${totalElapsed}秒`);
+
+            if (!fullContent) {
+                throw new Error('AI返回了空内容，请重试');
             }
-            let text = data.choices[0].message.content;
 
             // 提取JSON
-            try { return JSON.parse(text); } catch(e) {}
-            const m = text.match(/```(?:json)?\s*([\s\S]*?)```/) || text.match(/(\{[\s\S]*\})/);
-            if (m) return JSON.parse(m[1]);
-            throw new Error('无法从AI回复中提取有效JSON规划数据。\\n\\nAI原始回复片段: ' + text.substring(0, 300) + '...');
+            try { return JSON.parse(fullContent); } catch(e) {}
+            const m = fullContent.match(/```(?:json)?\s*([\s\S]*?)```/) || fullContent.match(/(\{[\s\S]*\})/);
+            if (m) {
+                try { return JSON.parse(m[1]); } catch(e2) {}
+            }
+            throw new Error('无法从AI回复中提取有效JSON规划数据。\\n\\nAI原始回复片段: ' + fullContent.substring(0, 300) + '...');
         }
 
         // ===== 生成Excel（客户端） =====
@@ -1274,6 +1304,8 @@ ${selectedImages.length > 0 ? '\n## 教师课堂反馈（图片）\n共' + selec
                 btn.disabled = false;
                 btn.innerHTML = '🚀 生成学习规划';
                 progress.classList.remove('active');
+                const sp = document.getElementById('streamProgress');
+                if (sp) sp.style.display = 'none';
             }
         }
 

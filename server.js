@@ -31,21 +31,25 @@ app.get('/', (req, res) => {
     }
 });
 
-// 代理AI API请求
+// 代理AI API请求（支持流式传输）
 app.post('/api/chat/completions', async (req, res) => {
     try {
-        const { apiUrl, apiKey, model, messages, temperature, max_tokens } = req.body;
+        const { apiUrl, apiKey, model, messages, temperature, max_tokens, stream } = req.body;
 
         if (!apiUrl || !apiKey || !model || !messages) {
             return res.status(400).json({ error: '缺少必要参数' });
         }
 
         const targetUrl = `${apiUrl}/chat/completions`;
-        console.log(`[代理] ${targetUrl}  model=${model}`);
+        console.log(`[代理] ${targetUrl}  model=${model}  stream=${!!stream}`);
 
-        // 使用 AbortController 实现超时（node-fetch v2 兼容）
+        const requestBody = { model, messages, temperature: temperature || 0.7, max_tokens: max_tokens || 8192 };
+        if (stream) requestBody.stream = true;
+
+        // 流式模式：5分钟超时；非流式：2分钟
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 120000);
+        const timeoutMs = stream ? 300000 : 120000;
+        const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
         const upstreamResp = await fetch(targetUrl, {
             method: 'POST',
@@ -53,24 +57,63 @@ app.post('/api/chat/completions', async (req, res) => {
                 'Content-Type': 'application/json',
                 'Authorization': `Bearer ${apiKey}`,
             },
-            body: JSON.stringify({ model, messages, temperature: temperature || 0.7, max_tokens: max_tokens || 8192 }),
+            body: JSON.stringify(requestBody),
             signal: controller.signal,
         }).catch(e => {
             clearTimeout(timeoutId);
             throw e;
         });
-        clearTimeout(timeoutId);
 
-        const respText = await upstreamResp.text();
-        res.status(upstreamResp.status);
-        try {
-            res.json(JSON.parse(respText));
-        } catch (e) {
-            res.send(respText);
+        if (!upstreamResp.ok) {
+            clearTimeout(timeoutId);
+            const errText = await upstreamResp.text().catch(() => '');
+            console.error(`[代理] 上游错误 ${upstreamResp.status}: ${errText.substring(0, 200)}`);
+            return res.status(upstreamResp.status).send(errText);
+        }
+
+        // 流式传输：直接 pipe SSE 响应给客户端
+        if (stream && upstreamResp.headers.get('content-type') && upstreamResp.headers.get('content-type').includes('text/event-stream')) {
+            res.setHeader('Content-Type', 'text/event-stream');
+            res.setHeader('Cache-Control', 'no-cache');
+            res.setHeader('Connection', 'keep-alive');
+            res.setHeader('X-Accel-Buffering', 'no'); // 禁用 Nginx 缓冲（Render 用了反向代理）
+            res.status(200);
+
+            upstreamResp.body.pipe(res);
+
+            upstreamResp.body.on('end', () => {
+                clearTimeout(timeoutId);
+                console.log('[代理] 流式传输完成');
+            });
+
+            upstreamResp.body.on('error', (err) => {
+                clearTimeout(timeoutId);
+                console.error('[代理] 流式传输错误:', err.message);
+                if (!res.headersSent) {
+                    res.status(502).json({ error: '流式传输失败', detail: err.message });
+                }
+            });
+
+            req.on('close', () => {
+                clearTimeout(timeoutId);
+                console.log('[代理] 客户端断开连接');
+            });
+        } else {
+            // 非流式模式：一次性读取
+            clearTimeout(timeoutId);
+            const respText = await upstreamResp.text();
+            res.status(upstreamResp.status);
+            try {
+                res.json(JSON.parse(respText));
+            } catch (e) {
+                res.send(respText);
+            }
         }
     } catch (err) {
         console.error('[代理错误]', err.message);
-        res.status(502).json({ error: '代理转发失败', detail: err.message });
+        if (!res.headersSent) {
+            res.status(502).json({ error: '代理转发失败', detail: err.message });
+        }
     }
 });
 
