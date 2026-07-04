@@ -1,0 +1,767 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>高中物理学习规划生成器 - 美博教育</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📚</text></svg>">
+    <style>
+        :root {
+            --brand-green: #2E7D32;
+            --brand-light: #E8F5E9;
+            --brand-dark: #1B5E20;
+            --bg: #f5f7fa;
+            --card-bg: #ffffff;
+            --text: #333333;
+            --text-light: #666666;
+            --border: #e0e0e0;
+            --radius: 12px;
+            --shadow: 0 2px 12px rgba(0,0,0,0.08);
+            --accent: #1565C0;
+            --success: #2E7D32;
+            --warning: #F9A825;
+            --error: #C62828;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            line-height: 1.6;
+            min-height: 100vh;
+        }
+
+        /* Header */
+        .header {
+            background: linear-gradient(135deg, var(--brand-dark) 0%, var(--brand-green) 100%);
+            color: white;
+            padding: 20px 0;
+            text-align: center;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+        .header h1 {
+            font-size: 1.5rem;
+            font-weight: 700;
+            letter-spacing: 1px;
+        }
+        .header p {
+            font-size: 0.85rem;
+            opacity: 0.9;
+            margin-top: 2px;
+        }
+
+        /* Container */
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 24px 16px 60px;
+        }
+
+        /* Card */
+        .card {
+            background: var(--card-bg);
+            border-radius: var(--radius);
+            box-shadow: var(--shadow);
+            padding: 28px;
+            margin-bottom: 20px;
+        }
+        .card-title {
+            font-size: 1.15rem;
+            font-weight: 700;
+            color: var(--brand-green);
+            margin-bottom: 18px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid var(--brand-light);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .card-title .icon { font-size: 1.3rem; }
+
+        /* Form */
+        .form-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+        }
+        .form-group { display: flex; flex-direction: column; }
+        .form-group.full { grid-column: 1 / -1; }
+        .form-group label {
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--text);
+            margin-bottom: 5px;
+        }
+        .form-group label .required { color: var(--error); margin-left: 2px; }
+        .form-group label .hint {
+            font-weight: 400;
+            color: var(--text-light);
+            font-size: 0.78rem;
+        }
+        .form-group input,
+        .form-group textarea,
+        .form-group select {
+            padding: 10px 14px;
+            border: 1.5px solid var(--border);
+            border-radius: 8px;
+            font-size: 0.92rem;
+            font-family: inherit;
+            transition: border-color 0.2s, box-shadow 0.2s;
+            background: #fafafa;
+        }
+        .form-group input:focus,
+        .form-group textarea:focus,
+        .form-group select:focus {
+            outline: none;
+            border-color: var(--brand-green);
+            box-shadow: 0 0 0 3px rgba(46,125,50,0.1);
+            background: #fff;
+        }
+        .form-group textarea {
+            resize: vertical;
+            min-height: 80px;
+        }
+
+        /* Image Upload */
+        .upload-zone {
+            border: 2px dashed var(--border);
+            border-radius: var(--radius);
+            padding: 24px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.2s;
+            background: #fafafa;
+        }
+        .upload-zone:hover {
+            border-color: var(--brand-green);
+            background: var(--brand-light);
+        }
+        .upload-zone.drag-over {
+            border-color: var(--brand-green);
+            background: var(--brand-light);
+            box-shadow: 0 0 0 4px rgba(46,125,50,0.1);
+        }
+        .upload-zone .icon { font-size: 2rem; margin-bottom: 6px; }
+        .upload-zone .text { font-size: 0.9rem; color: var(--text-light); }
+        .upload-zone .limit { font-size: 0.78rem; color: var(--text-light); margin-top: 4px; }
+        .upload-zone input { display: none; }
+
+        .preview-grid {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-top: 14px;
+        }
+        .preview-item {
+            position: relative;
+            width: 100px;
+            height: 100px;
+            border-radius: 8px;
+            overflow: hidden;
+            border: 2px solid var(--border);
+        }
+        .preview-item img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        .preview-item .remove {
+            position: absolute;
+            top: 2px;
+            right: 2px;
+            width: 22px;
+            height: 22px;
+            background: rgba(0,0,0,0.6);
+            color: white;
+            border: none;
+            border-radius: 50%;
+            cursor: pointer;
+            font-size: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .preview-item .remove:hover { background: var(--error); }
+
+        /* Buttons */
+        .btn {
+            padding: 12px 32px;
+            border: none;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .btn-primary {
+            background: linear-gradient(135deg, var(--brand-green), var(--brand-dark));
+            color: white;
+            width: 100%;
+            justify-content: center;
+            font-size: 1.05rem;
+            padding: 14px;
+            box-shadow: 0 2px 8px rgba(46,125,50,0.3);
+        }
+        .btn-primary:hover { transform: translateY(-1px); box-shadow: 0 4px 16px rgba(46,125,50,0.4); }
+        .btn-primary:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
+        .btn-secondary {
+            background: var(--bg);
+            color: var(--brand-green);
+            border: 1.5px solid var(--brand-green);
+        }
+        .btn-secondary:hover { background: var(--brand-light); }
+        .btn-sm { padding: 6px 16px; font-size: 0.85rem; }
+
+        /* Progress */
+        .progress-container {
+            display: none;
+            margin: 20px 0;
+        }
+        .progress-container.active { display: block; }
+        .progress-bar {
+            width: 100%;
+            height: 6px;
+            background: var(--brand-light);
+            border-radius: 3px;
+            overflow: hidden;
+        }
+        .progress-bar .fill {
+            height: 100%;
+            background: linear-gradient(90deg, var(--brand-green), var(--success));
+            border-radius: 3px;
+            width: 0%;
+            animation: progress-anim 3s ease-in-out infinite;
+        }
+        @keyframes progress-anim {
+            0% { width: 10%; }
+            50% { width: 70%; }
+            100% { width: 10%; }
+        }
+        .progress-text {
+            text-align: center;
+            font-size: 0.85rem;
+            color: var(--text-light);
+            margin-top: 8px;
+        }
+
+        /* Result */
+        .result-container {
+            display: none;
+        }
+        .result-container.active { display: block; }
+        .result-card {
+            background: var(--brand-light);
+            border: 2px solid var(--brand-green);
+            border-radius: var(--radius);
+            padding: 20px;
+        }
+        .result-card h3 {
+            color: var(--brand-green);
+            margin-bottom: 12px;
+        }
+        .download-buttons {
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+            margin-top: 12px;
+        }
+        .download-btn {
+            flex: 1;
+            min-width: 160px;
+            padding: 14px;
+            border-radius: 8px;
+            text-decoration: none;
+            font-weight: 600;
+            text-align: center;
+            font-size: 0.95rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            transition: all 0.2s;
+        }
+        .download-btn.excel {
+            background: #1B5E20;
+            color: white;
+        }
+        .download-btn.excel:hover { background: #14501a; }
+        .download-btn.word {
+            background: #1565C0;
+            color: white;
+        }
+        .download-btn.word:hover { background: #0d47a1; }
+
+        /* Summary */
+        .summary-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+            gap: 10px;
+            margin: 14px 0;
+        }
+        .summary-item {
+            background: white;
+            border-radius: 8px;
+            padding: 12px;
+            text-align: center;
+            border: 1px solid var(--border);
+        }
+        .summary-item .value {
+            font-size: 1.4rem;
+            font-weight: 700;
+            color: var(--brand-green);
+        }
+        .summary-item .label {
+            font-size: 0.78rem;
+            color: var(--text-light);
+            margin-top: 2px;
+        }
+
+        /* Error */
+        .error-box {
+            background: #FFEBEE;
+            border: 1px solid #EF9A9A;
+            border-radius: 8px;
+            padding: 14px;
+            color: var(--error);
+            font-size: 0.9rem;
+            display: none;
+        }
+        .error-box.active { display: block; }
+
+        /* Tabs */
+        .tab-buttons {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 16px;
+        }
+        .tab-btn {
+            padding: 8px 20px;
+            border: 1.5px solid var(--border);
+            border-radius: 20px;
+            background: white;
+            cursor: pointer;
+            font-size: 0.85rem;
+            transition: all 0.2s;
+        }
+        .tab-btn.active {
+            background: var(--brand-green);
+            color: white;
+            border-color: var(--brand-green);
+        }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+
+        /* Template */
+        .template-hint {
+            background: #FFF8E1;
+            border: 1px solid #FFE082;
+            border-radius: 8px;
+            padding: 12px 16px;
+            font-size: 0.85rem;
+            color: #F57F17;
+            margin-top: 8px;
+            display: flex;
+            align-items: flex-start;
+            gap: 8px;
+            cursor: pointer;
+        }
+        .template-hint:hover { background: #FFF3CD; }
+
+        /* Footer */
+        .footer {
+            text-align: center;
+            padding: 16px;
+            color: var(--text-light);
+            font-size: 0.8rem;
+        }
+
+        /* Responsive */
+        @media (max-width: 640px) {
+            .form-grid { grid-template-columns: 1fr; }
+            .card { padding: 20px 16px; }
+            .download-buttons { flex-direction: column; }
+            .header h1 { font-size: 1.2rem; }
+        }
+
+        /* 加载动画 */
+        .spinner {
+            width: 18px;
+            height: 18px;
+            border: 2px solid rgba(255,255,255,0.3);
+            border-top-color: white;
+            border-radius: 50%;
+            animation: spin 0.6s linear infinite;
+            display: inline-block;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+    </style>
+</head>
+<body>
+    <!-- Header -->
+    <div class="header">
+        <h1>📚 高中物理学习规划生成器</h1>
+        <p>基于美博教育20+年经验 · AI智能分析与规划</p>
+    </div>
+
+    <div class="container">
+        <!-- API配置 -->
+        <div class="card" id="configCard">
+            <div class="card-title">
+                <span class="icon">⚙️</span> API 配置
+                <button class="btn btn-sm btn-secondary" style="margin-left: auto;" onclick="toggleConfig()">展开/收起</button>
+            </div>
+            <div id="configContent" style="display:block;">
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label>API URL <span class="required">*</span></label>
+                        <input type="text" id="apiUrl" placeholder="http://110.185.163.23:50000/v1">
+                    </div>
+                    <div class="form-group">
+                        <label>模型名称 <span class="required">*</span></label>
+                        <input type="text" id="modelName" placeholder="qwen3.6-35b">
+                    </div>
+                    <div class="form-group full">
+                        <label>API Key <span class="required">*</span> <span class="hint">（自行填写）</span></label>
+                        <input type="password" id="apiKey" placeholder="请输入API Key">
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 学生信息 -->
+        <div class="card">
+            <div class="card-title"><span class="icon">👨‍🎓</span> 学生基本信息</div>
+            <div class="form-grid">
+                <div class="form-group">
+                    <label>学生姓名 <span class="required">*</span></label>
+                    <input type="text" id="studentName" placeholder="如：杜鑫垒">
+                </div>
+                <div class="form-group">
+                    <label>学校 <span class="required">*</span></label>
+                    <input type="text" id="school" placeholder="如：七中实验">
+                </div>
+                <div class="form-group">
+                    <label>年级 <span class="required">*</span></label>
+                    <select id="grade">
+                        <option value="">请选择</option>
+                        <option value="高一">高一</option>
+                        <option value="高二">高二</option>
+                        <option value="高三">高三</option>
+                        <option value="高一升高二">高一升高二</option>
+                        <option value="高二升高三" selected>高二升高三</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>目前进度 <span class="required">*</span></label>
+                    <input type="text" id="currentProgress" placeholder="如：刚上完高二下期内容">
+                </div>
+                <div class="form-group">
+                    <label>规划上课时间 <span class="required">*</span></label>
+                    <input type="text" id="planTime" placeholder="如：暑假7月-9月">
+                </div>
+                <div class="form-group">
+                    <label>上课节数 <span class="required">*</span></label>
+                    <input type="number" id="lessonCount" placeholder="如：16" min="1">
+                </div>
+                <div class="form-group">
+                    <label>课时数 <span class="required">*</span></label>
+                    <input type="number" id="totalHours" placeholder="如：32" min="1">
+                </div>
+                <div class="form-group">
+                    <label>学习内容范围 <span class="required">*</span></label>
+                    <input type="text" id="contentScope" placeholder="如：从运动学到牛顿第二定律">
+                </div>
+                <div class="form-group">
+                    <label>学生优点 <span class="required">*</span></label>
+                    <textarea id="strengths" placeholder="如：学习能力强，计算能力好，上课认真"></textarea>
+                </div>
+                <div class="form-group">
+                    <label>学生缺点 <span class="required">*</span></label>
+                    <textarea id="weaknesses" placeholder="如：课后作业完成度不高，知识点记背不牢"></textarea>
+                </div>
+            </div>
+        </div>
+
+        <!-- 教师反馈 -->
+        <div class="card">
+            <div class="card-title"><span class="icon">📋</span> 近期教师课堂反馈</div>
+            <div class="tab-buttons">
+                <button class="tab-btn active" onclick="switchTab('text')">📝 文字反馈</button>
+                <button class="tab-btn" onclick="switchTab('image')">🖼️ 图片反馈（最多9张）</button>
+            </div>
+
+            <div id="tab-text" class="tab-content active">
+                <div class="form-group">
+                    <label>教师反馈文字 <span class="hint">（可选，粘贴教师课堂反馈内容）</span></label>
+                    <textarea id="feedbackText" rows="6" placeholder="如：鑫垒家长中午好，今天物理课程反馈如下：&#10;&#10;👨🏻‍🏫课堂内容&#10;光电效应&#10;&#10;📚课堂情况&#10;今天我们主要学习了..."></textarea>
+                </div>
+                <div class="template-hint" onclick="fillTemplate()">
+                    <span>💡</span>
+                    <span>点击此处自动填入示例反馈模板（方便测试和体验）</span>
+                </div>
+            </div>
+
+            <div id="tab-image" class="tab-content">
+                <div class="form-group">
+                    <label>上传反馈图片 <span class="hint">（可选，最多9张，支持JPG/PNG）</span></label>
+                </div>
+                <div class="upload-zone" id="uploadZone" onclick="document.getElementById('imageInput').click()">
+                    <div class="icon">📸</div>
+                    <div class="text">点击上传或拖拽图片到此处</div>
+                    <div class="limit">最多9张 · JPG/PNG · 每张≤10MB</div>
+                </div>
+                <input type="file" id="imageInput" accept="image/*" multiple style="display:none;">
+                <div class="preview-grid" id="previewGrid"></div>
+            </div>
+        </div>
+
+        <!-- 生成按钮 -->
+        <button class="btn btn-primary" id="generateBtn" onclick="generatePlan()">
+            🚀 生成学习规划
+        </button>
+
+        <!-- 进度条 -->
+        <div class="progress-container" id="progressContainer">
+            <div class="progress-bar"><div class="fill"></div></div>
+            <div class="progress-text">AI正在分析学生情况并生成规划方案，请稍候...</div>
+        </div>
+
+        <!-- 错误提示 -->
+        <div class="error-box" id="errorBox"></div>
+
+        <!-- 结果 -->
+        <div class="result-container" id="resultContainer">
+            <div class="card">
+                <div class="card-title"><span class="icon">✅</span> 生成成功！</div>
+                <div class="result-card">
+                    <h3>📥 下载文件</h3>
+                    <div class="download-buttons">
+                        <a class="download-btn excel" id="excelDownload" href="#" download>
+                            📊 下载 Excel 课规表
+                        </a>
+                        <a class="download-btn word" id="wordDownload" href="#" download>
+                            📄 下载 Word 辅导方案
+                        </a>
+                    </div>
+                    <div class="summary-grid" id="summaryGrid"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="footer">
+        美博教育 · 成都 · 专注一对一深度辅导
+    </div>
+
+    <script>
+        // ===== 图片管理 =====
+        let selectedImages = [];
+
+        const uploadZone = document.getElementById('uploadZone');
+        uploadZone.addEventListener('dragover', (e) => { e.preventDefault(); uploadZone.classList.add('drag-over'); });
+        uploadZone.addEventListener('dragleave', () => uploadZone.classList.remove('drag-over'));
+        uploadZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadZone.classList.remove('drag-over');
+            addImages(Array.from(e.dataTransfer.files));
+        });
+
+        document.getElementById('imageInput').addEventListener('change', (e) => {
+            addImages(Array.from(e.target.files));
+            e.target.value = '';
+        });
+
+        function addImages(files) {
+            const remaining = 9 - selectedImages.length;
+            const toAdd = files.slice(0, remaining).filter(f => f.type.startsWith('image/'));
+            selectedImages = [...selectedImages, ...toAdd];
+            if (selectedImages.length > 9) selectedImages = selectedImages.slice(0, 9);
+            renderPreviews();
+        }
+
+        function removeImage(index) {
+            selectedImages.splice(index, 1);
+            renderPreviews();
+        }
+
+        function renderPreviews() {
+            const grid = document.getElementById('previewGrid');
+            grid.innerHTML = '';
+            selectedImages.forEach((file, i) => {
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    const div = document.createElement('div');
+                    div.className = 'preview-item';
+                    div.innerHTML = `<img src="${e.target.result}" alt="preview"><button class="remove" onclick="removeImage(${i})">✕</button>`;
+                    grid.appendChild(div);
+                };
+                reader.readAsDataURL(file);
+            });
+        }
+
+        // ===== Tab切换 =====
+        function switchTab(tab) {
+            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+            if (tab === 'text') {
+                document.querySelector('.tab-btn:nth-child(1)').classList.add('active');
+                document.getElementById('tab-text').classList.add('active');
+            } else {
+                document.querySelector('.tab-btn:nth-child(2)').classList.add('active');
+                document.getElementById('tab-image').classList.add('active');
+            }
+        }
+
+        // ===== 配置折叠 =====
+        function toggleConfig() {
+            const content = document.getElementById('configContent');
+            content.style.display = content.style.display === 'none' ? 'block' : 'none';
+        }
+
+        // ===== 填充模板 =====
+        function fillTemplate() {
+            const template = `鑫垒家长中午好，今天物理课程反馈如下：
+
+👨🏻‍🏫课堂内容
+光电效应
+
+📚课堂情况
+今天我们主要往后学习的近代物理中的光电效应部分，光电效应是近代物理这章最难的一个知识点，内容相对是比较多的，需要孩子记住的结论也是比较多的，需要孩子把这些内容全部记住后，能够灵活的融会贯通起来，目前课上我们给孩子讲完后，孩子还是对知识点不太熟悉，还需要结合一些题型来进行练习，因为课上讲的比较详细，花的时间比较多，练习量是不太够的，所以这一周给孩子布置的作业相对会多一些，还需要孩子课后再自行进行一些巩固。`;
+            document.getElementById('feedbackText').value = template;
+        }
+
+        // ===== 初始化配置 =====
+        fetch('/api/config')
+            .then(r => r.json())
+            .then(config => {
+                document.getElementById('apiUrl').value = config.ai_url || '';
+                document.getElementById('modelName').value = config.model || '';
+            })
+            .catch(() => {});
+
+        // ===== 生成规划 =====
+        async function generatePlan() {
+            const btn = document.getElementById('generateBtn');
+            const progress = document.getElementById('progressContainer');
+            const errorBox = document.getElementById('errorBox');
+            const resultContainer = document.getElementById('resultContainer');
+
+            // 重置
+            errorBox.classList.remove('active');
+            errorBox.textContent = '';
+            resultContainer.classList.remove('active');
+
+            // 收集数据
+            const formData = new FormData();
+            formData.append('api_key', document.getElementById('apiKey').value);
+            formData.append('ai_url', document.getElementById('apiUrl').value);
+            formData.append('model', document.getElementById('modelName').value);
+            formData.append('student_name', document.getElementById('studentName').value);
+            formData.append('school', document.getElementById('school').value);
+            formData.append('grade', document.getElementById('grade').value);
+            formData.append('current_progress', document.getElementById('currentProgress').value);
+            formData.append('plan_time', document.getElementById('planTime').value);
+            formData.append('lesson_count', document.getElementById('lessonCount').value);
+            formData.append('total_hours', document.getElementById('totalHours').value);
+            formData.append('content_scope', document.getElementById('contentScope').value);
+            formData.append('strengths', document.getElementById('strengths').value);
+            formData.append('weaknesses', document.getElementById('weaknesses').value);
+            formData.append('feedback_text', document.getElementById('feedbackText').value);
+
+            // 验证必填
+            const requiredFields = [
+                { id: 'apiKey', name: 'API Key' },
+                { id: 'studentName', name: '学生姓名' },
+                { id: 'school', name: '学校' },
+                { id: 'grade', name: '年级' },
+                { id: 'currentProgress', name: '目前进度' },
+                { id: 'planTime', name: '规划上课时间' },
+                { id: 'lessonCount', name: '上课节数' },
+                { id: 'totalHours', name: '课时数' },
+                { id: 'contentScope', name: '学习内容范围' },
+                { id: 'strengths', name: '学生优点' },
+                { id: 'weaknesses', name: '学生缺点' },
+            ];
+
+            for (const field of requiredFields) {
+                const el = document.getElementById(field.id);
+                if (!el.value.trim()) {
+                    showError(`请填写"${field.name}"`);
+                    el.focus();
+                    return;
+                }
+            }
+
+            // 添加图片
+            selectedImages.forEach((img, i) => {
+                formData.append('feedback_images', img, `feedback_${i+1}.png`);
+            });
+
+            // 开始生成
+            btn.disabled = true;
+            btn.innerHTML = '<span class="spinner"></span> AI正在分析中...';
+            progress.classList.add('active');
+
+            try {
+                const resp = await fetch('/api/generate', { method: 'POST', body: formData });
+                const data = await resp.json();
+
+                if (!data.success) {
+                    showError(data.error || '生成失败，请重试');
+                    return;
+                }
+
+                // 显示结果
+                document.getElementById('excelDownload').href = data.excel_url;
+                document.getElementById('wordDownload').href = data.word_url;
+
+                // 显示摘要
+                const pd = data.plan_data;
+                document.getElementById('summaryGrid').innerHTML = `
+                    <div class="summary-item">
+                        <div class="value">${pd.course_plan_summary}</div>
+                        <div class="label">课次数</div>
+                    </div>
+                    <div class="summary-item">
+                        <div class="value">${pd.total_hours}h</div>
+                        <div class="label">总课时</div>
+                    </div>
+                    <div class="summary-item">
+                        <div class="value">${pd.target_score}分</div>
+                        <div class="label">预期目标分</div>
+                    </div>
+                    <div class="summary-item">
+                        <div class="value">${pd.phases.length}</div>
+                        <div class="label">教学阶段</div>
+                    </div>
+                `;
+
+                resultContainer.classList.add('active');
+                resultContainer.scrollIntoView({ behavior: 'smooth', block: 'center' });
+
+            } catch (e) {
+                showError(`网络错误：${e.message}`);
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = '🚀 生成学习规划';
+                progress.classList.remove('active');
+            }
+        }
+
+        function showError(msg) {
+            const errorBox = document.getElementById('errorBox');
+            errorBox.textContent = msg;
+            errorBox.classList.add('active');
+            errorBox.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,1331 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>高中物理学习规划生成器 - 美博教育</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📚</text></svg>">
+    <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
+    <style>
+        :root {
+            --brand-green: #2E7D32;
+            --brand-light: #E8F5E9;
+            --brand-dark: #1B5E20;
+            --bg: #f5f7fa;
+            --card-bg: #ffffff;
+            --text: #333333;
+            --text-light: #666666;
+            --border: #e0e0e0;
+            --radius: 12px;
+            --shadow: 0 2px 12px rgba(0,0,0,0.08);
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+            background: var(--bg); color: var(--text); line-height: 1.6; min-height: 100vh;
+        }
+        .header {
+            background: linear-gradient(135deg, var(--brand-dark) 0%, var(--brand-green) 100%);
+            color: white; padding: 20px 0; text-align: center;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+            position: sticky; top: 0; z-index: 100;
+        }
+        .header h1 { font-size: 1.5rem; font-weight: 700; letter-spacing: 1px; }
+        .header p { font-size: 0.85rem; opacity: 0.9; margin-top: 2px; }
+
+        /* 代理模式 vs 直接模式 */
+        .mode-indicator {
+            display: inline-flex; align-items: center; gap: 6px;
+            padding: 4px 12px; border-radius: 20px; font-size: 0.8rem; font-weight: 600;
+            vertical-align: middle; margin-left: 8px;
+        }
+        .mode-proxy { background: #E8F5E9; color: #2E7D32; border: 1px solid #A5D6A7; }
+        .mode-direct { background: #FFF3E0; color: #E65100; border: 1px solid #FFCC80; }
+        .mode-toggle {
+            font-size: 0.78rem; color: var(--brand-green); cursor: pointer;
+            text-decoration: underline; margin-left: 8px; user-select: none;
+        }
+        .mode-toggle:hover { color: var(--brand-dark); }
+        .proxy-note {
+            display: none; margin-top: 8px; padding: 8px 14px;
+            background: #E8F5E9; border-radius: 8px; font-size: 0.82rem; color: #2E7D32;
+            border-left: 3px solid var(--brand-green);
+        }
+        .proxy-note.show { display: block; }
+
+        /* 协议检测横幅 */
+        .protocol-banner {
+            display: none; background: linear-gradient(135deg, #FFF3E0, #FFE0B2);
+            border-bottom: 2px solid #FF9800; text-align: center;
+            padding: 14px 20px; font-size: 0.9rem; color: #E65100;
+            position: sticky; top: 72px; z-index: 99;
+        }
+        .protocol-banner.show { display: block; }
+        .protocol-banner .banner-inner {
+            max-width: 900px; margin: 0 auto;
+            display: flex; align-items: center; justify-content: center; gap: 12px;
+            flex-wrap: wrap;
+        }
+        .protocol-banner .banner-icon { font-size: 1.4rem; flex-shrink: 0; }
+        .protocol-banner .banner-text { flex: 1; min-width: 200px; text-align: left; }
+        .protocol-banner .banner-text strong { display: block; margin-bottom: 2px; }
+        .btn-download-offline {
+            padding: 10px 22px; background: #FF9800; color: white;
+            border: none; border-radius: 20px; font-size: 0.9rem; font-weight: 600;
+            cursor: pointer; white-space: nowrap; transition: all 0.2s;
+            box-shadow: 0 2px 8px rgba(255,152,0,0.3);
+        }
+        .btn-download-offline:hover { background: #F57C00; transform: translateY(-1px); box-shadow: 0 4px 12px rgba(255,152,0,0.4); }
+
+        /* API Key 确认按钮 */
+        .api-key-row { display: flex; gap: 10px; align-items: flex-end; }
+        .api-key-row .form-group { flex: 1; }
+        .btn-confirm {
+            padding: 10px 20px; background: var(--brand-green); color: white;
+            border: none; border-radius: 8px; font-size: 0.9rem; font-weight: 600;
+            cursor: pointer; white-space: nowrap; transition: all 0.2s;
+            align-self: flex-end; margin-bottom: 0;
+        }
+        .btn-confirm:hover { background: var(--brand-dark); }
+        .btn-confirm.confirmed {
+            background: #43A047; cursor: default; pointer-events: none;
+        }
+        .api-key-status {
+            font-size: 0.78rem; margin-top: 4px; min-height: 20px;
+        }
+        .api-key-status.confirmed { color: #2E7D32; }
+        .api-key-status.confirmed::before { content: '✅ '; }
+        .container { max-width: 900px; margin: 0 auto; padding: 24px 16px 60px; }
+        .card {
+            background: var(--card-bg); border-radius: var(--radius);
+            box-shadow: var(--shadow); padding: 28px; margin-bottom: 20px;
+        }
+        .card-title {
+            font-size: 1.15rem; font-weight: 700; color: var(--brand-green);
+            margin-bottom: 18px; padding-bottom: 10px;
+            border-bottom: 2px solid var(--brand-light);
+            display: flex; align-items: center; gap: 8px;
+        }
+        .card-title .icon { font-size: 1.3rem; }
+        .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+        .form-group { display: flex; flex-direction: column; }
+        .form-group.full { grid-column: 1 / -1; }
+        .form-group label { font-size: 0.85rem; font-weight: 600; margin-bottom: 5px; }
+        .form-group label .required { color: #C62828; margin-left: 2px; }
+        .form-group label .hint { font-weight: 400; color: var(--text-light); font-size: 0.78rem; }
+        .form-group input, .form-group textarea, .form-group select {
+            padding: 10px 14px; border: 1.5px solid var(--border); border-radius: 8px;
+            font-size: 0.92rem; font-family: inherit; transition: border-color 0.2s, box-shadow 0.2s;
+            background: #fafafa;
+        }
+        .form-group input:focus, .form-group textarea:focus, .form-group select:focus {
+            outline: none; border-color: var(--brand-green);
+            box-shadow: 0 0 0 3px rgba(46,125,50,0.1); background: #fff;
+        }
+        .form-group textarea { resize: vertical; min-height: 80px; }
+        .upload-zone {
+            border: 2px dashed var(--border); border-radius: var(--radius);
+            padding: 24px; text-align: center; cursor: pointer; transition: all 0.2s; background: #fafafa;
+        }
+        .upload-zone:hover, .upload-zone.drag-over {
+            border-color: var(--brand-green); background: var(--brand-light);
+            box-shadow: 0 0 0 4px rgba(46,125,50,0.1);
+        }
+        .upload-zone .icon { font-size: 2rem; margin-bottom: 6px; }
+        .upload-zone .text { font-size: 0.9rem; color: var(--text-light); }
+        .upload-zone .limit { font-size: 0.78rem; color: var(--text-light); margin-top: 4px; }
+        .upload-zone input { display: none; }
+        .preview-grid { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 14px; }
+        .preview-item { position: relative; width: 100px; height: 100px; border-radius: 8px; overflow: hidden; border: 2px solid var(--border); }
+        .preview-item img { width: 100%; height: 100%; object-fit: cover; }
+        .preview-item .remove {
+            position: absolute; top: 2px; right: 2px; width: 22px; height: 22px;
+            background: rgba(0,0,0,0.6); color: white; border: none; border-radius: 50%;
+            cursor: pointer; font-size: 12px; display: flex; align-items: center; justify-content: center;
+        }
+        .preview-item .remove:hover { background: #C62828; }
+        .btn {
+            padding: 12px 32px; border: none; border-radius: 8px;
+            font-size: 1rem; font-weight: 600; cursor: pointer; transition: all 0.2s;
+            display: inline-flex; align-items: center; gap: 8px;
+        }
+        .btn-primary {
+            background: linear-gradient(135deg, var(--brand-green), var(--brand-dark));
+            color: white; width: 100%; justify-content: center;
+            font-size: 1.05rem; padding: 14px;
+            box-shadow: 0 2px 8px rgba(46,125,50,0.3);
+        }
+        .btn-primary:hover { transform: translateY(-1px); box-shadow: 0 4px 16px rgba(46,125,50,0.4); }
+        .btn-primary:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
+        .btn-secondary { background: var(--bg); color: var(--brand-green); border: 1.5px solid var(--brand-green); }
+        .btn-sm { padding: 6px 16px; font-size: 0.85rem; }
+        .progress-container { display: none; margin: 20px 0; }
+        .progress-container.active { display: block; }
+        .progress-bar { width: 100%; height: 6px; background: var(--brand-light); border-radius: 3px; overflow: hidden; }
+        .progress-bar .fill { height: 100%; background: linear-gradient(90deg, var(--brand-green), #4CAF50); border-radius: 3px; width: 0%; animation: progress-anim 3s ease-in-out infinite; }
+        @keyframes progress-anim { 0%{width:10%} 50%{width:70%} 100%{width:10%} }
+        .progress-text { text-align: center; font-size: 0.85rem; color: var(--text-light); margin-top: 8px; }
+        .result-container { display: none; }
+        .result-container.active { display: block; }
+        .result-card { background: var(--brand-light); border: 2px solid var(--brand-green); border-radius: var(--radius); padding: 20px; }
+        .result-card h3 { color: var(--brand-green); margin-bottom: 12px; }
+        .download-buttons { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 12px; }
+        .download-btn {
+            flex: 1; min-width: 160px; padding: 14px; border-radius: 8px;
+            text-decoration: none; font-weight: 600; text-align: center; font-size: 0.95rem;
+            display: flex; align-items: center; justify-content: center; gap: 6px; transition: all 0.2s;
+        }
+        .download-btn.excel { background: #1B5E20; color: white; cursor: pointer; }
+        .download-btn.word { background: #1565C0; color: white; cursor: pointer; }
+        .download-btn:hover { opacity: 0.9; transform: translateY(-1px); }
+        .summary-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 10px; margin: 14px 0; }
+        .summary-item { background: white; border-radius: 8px; padding: 12px; text-align: center; border: 1px solid var(--border); }
+        .summary-item .value { font-size: 1.4rem; font-weight: 700; color: var(--brand-green); }
+        .summary-item .label { font-size: 0.78rem; color: var(--text-light); margin-top: 2px; }
+        .error-box { background: #FFEBEE; border: 1px solid #EF9A9A; border-radius: 8px; padding: 14px; color: #C62828; font-size: 0.9rem; display: none; margin-top: 16px; }
+        .error-box.active { display: block; }
+        .warning-box { background: #FFF8E1; border: 1px solid #FFE082; border-radius: 8px; padding: 14px; color: #F57F17; font-size: 0.85rem; display: none; margin-top: 16px; }
+        .warning-box.active { display: block; }
+        .tab-buttons { display: flex; gap: 8px; margin-bottom: 16px; }
+        .tab-btn { padding: 8px 20px; border: 1.5px solid var(--border); border-radius: 20px; background: white; cursor: pointer; font-size: 0.85rem; transition: all 0.2s; }
+        .tab-btn.active { background: var(--brand-green); color: white; border-color: var(--brand-green); }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+        .template-hint { background: #FFF8E1; border: 1px solid #FFE082; border-radius: 8px; padding: 12px 16px; font-size: 0.85rem; color: #F57F17; margin-top: 8px; display: flex; align-items: flex-start; gap: 8px; cursor: pointer; }
+        .template-hint:hover { background: #FFF3CD; }
+        .footer { text-align: center; padding: 16px; color: var(--text-light); font-size: 0.8rem; }
+        .spinner { width: 18px; height: 18px; border: 2px solid rgba(255,255,255,0.3); border-top-color: white; border-radius: 50%; animation: spin 0.6s linear infinite; display: inline-block; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .editable-result { margin-top: 16px; background: white; border-radius: 8px; padding: 16px; border: 1px solid var(--border); max-height: 400px; overflow-y: auto; font-family: monospace; font-size: 0.85rem; white-space: pre-wrap; }
+        .phase-card { background: white; border-radius: 8px; padding: 14px; margin-bottom: 10px; border-left: 4px solid var(--brand-green); }
+        .phase-card h4 { color: var(--brand-green); margin-bottom: 6px; }
+        .phase-card p { font-size: 0.88rem; color: var(--text-light); margin: 2px 0; }
+
+        /* 测试连接 */
+        .url-test-row { display: flex; gap: 10px; align-items: flex-end; }
+        .url-test-row .form-group { flex: 1; }
+        .btn-test {
+            padding: 10px 18px; background: #1565C0; color: white;
+            border: none; border-radius: 8px; font-size: 0.88rem; font-weight: 600;
+            cursor: pointer; white-space: nowrap; transition: all 0.2s;
+            align-self: flex-end;
+        }
+        .btn-test:hover { background: #0D47A1; }
+        .btn-test:disabled { opacity: 0.6; cursor: not-allowed; }
+        .test-result {
+            display: none; padding: 12px 16px; border-radius: 8px; font-size: 0.85rem;
+            margin-top: 10px; line-height: 1.7;
+        }
+        .test-result.show { display: block; }
+        .test-result.success { background: #E8F5E9; border: 1px solid #66BB6A; color: #2E7D32; }
+        .test-result.error { background: #FFEBEE; border: 1px solid #EF9A9A; color: #C62828; }
+        .test-result code { background: rgba(0,0,0,0.08); padding: 2px 6px; border-radius: 4px; font-size: 0.82rem; word-break: break-all; }
+        .test-result .diag-line { margin: 3px 0; }
+        .diag-box { background: #FFF8E1; border: 1px solid #FFE082; border-radius: 8px; padding: 12px 16px; font-size: 0.84rem; color: #E65100; margin-top: 10px; display: none; line-height: 1.6; }
+        .diag-box.show { display: block; }
+
+        /* file:// 协议覆盖层 */
+        .file-overlay {
+            display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.7); z-index: 10000;
+            align-items: center; justify-content: center;
+        }
+        .file-overlay.show { display: flex; }
+        .file-overlay-card {
+            background: white; border-radius: 16px; padding: 32px 36px;
+            max-width: 560px; width: 90%; text-align: center;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            animation: overlayIn 0.3s ease;
+        }
+        @keyframes overlayIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .file-overlay-icon { font-size: 3rem; margin-bottom: 12px; }
+        .file-overlay-card h2 {
+            color: #E65100; font-size: 1.2rem; margin-bottom: 8px;
+        }
+        .file-overlay-subtitle {
+            color: #666; font-size: 0.9rem; margin-bottom: 20px;
+        }
+        .file-overlay-subtitle code {
+            background: #FFF3E0; padding: 2px 8px; border-radius: 4px;
+            color: #E65100; font-weight: 600;
+        }
+        .file-overlay-steps {
+            text-align: left; background: #FFF8E1; border-radius: 12px;
+            padding: 16px 20px; margin-bottom: 4px;
+        }
+        .file-step {
+            display: flex; gap: 14px; align-items: flex-start;
+            padding: 10px 0; border-bottom: 1px solid #FFE082;
+        }
+        .file-step:last-child { border-bottom: none; }
+        .file-step-num {
+            width: 28px; height: 28px; background: #E65100; color: white;
+            border-radius: 50%; display: flex; align-items: center;
+            justify-content: center; font-size: 0.85rem; font-weight: 700;
+            flex-shrink: 0; margin-top: 2px;
+        }
+        .file-step strong { display: block; font-size: 0.92rem; color: #333; }
+        .file-step p { font-size: 0.82rem; color: #666; margin: 2px 0 0; }
+        .file-step code {
+            background: rgba(0,0,0,0.06); padding: 1px 6px; border-radius: 3px;
+            font-size: 0.8rem;
+        }
+        .file-overlay-dismiss {
+            margin-top: 16px; padding: 10px 20px;
+            background: none; border: 1px solid #ccc; border-radius: 8px;
+            color: #999; font-size: 0.82rem; cursor: pointer; transition: all 0.2s;
+        }
+        .file-overlay-dismiss:hover { border-color: #999; color: #666; background: #fafafa; }
+
+        @media (max-width: 640px) {
+            .form-grid { grid-template-columns: 1fr; }
+            .card { padding: 20px 16px; }
+            .download-buttons { flex-direction: column; }
+            .header h1 { font-size: 1.2rem; }
+            .file-overlay-card { padding: 24px 20px; }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>📚 高中物理学习规划生成器</h1>
+        <p>基于美博教育20+年经验 · AI智能分析与规划 · 自动生成Excel课规表和Word辅导方案</p>
+    </div>
+
+    <!-- 协议检测横幅：HTTPS/file下显示 -->
+    <div class="protocol-banner" id="protocolBanner">
+        <div class="banner-inner" id="bannerInner">
+            <span class="banner-icon">💡</span>
+            <span class="banner-text" id="bannerText">
+                <strong>推荐使用代理模式</strong>
+                双击运行 <code>start.bat</code> 启动本地代理服务器，然后访问 <code>http://localhost:8888</code>，可彻底绕过CORS限制。
+            </span>
+            <button class="btn-download-offline" onclick="downloadOfflineVersion()">📥 一键下载离线版</button>
+        </div>
+    </div>
+
+    <!-- file:// 协议全屏覆盖提示 -->
+    <div class="file-overlay" id="fileOverlay">
+        <div class="file-overlay-card">
+            <div class="file-overlay-icon">⚠️</div>
+            <h2>检测到您正在使用本地文件打开</h2>
+            <p class="file-overlay-subtitle">当前页面以 <code>file://</code> 协议运行，浏览器安全策略会阻止所有 API 请求。</p>
+            <div class="file-overlay-steps">
+                <div class="file-step">
+                    <span class="file-step-num">1</span>
+                    <div>
+                        <strong>双击运行</strong>
+                        <p>在 <code>web_app</code> 文件夹中找到 <code>start.bat</code>，双击运行</p>
+                    </div>
+                </div>
+                <div class="file-step">
+                    <span class="file-step-num">2</span>
+                    <div>
+                        <strong>等待服务器启动</strong>
+                        <p>会弹出一个命令行窗口（请勿关闭），浏览器将自动打开</p>
+                    </div>
+                </div>
+                <div class="file-step">
+                    <span class="file-step-num">3</span>
+                    <div>
+                        <strong>开始使用</strong>
+                        <p>浏览器会自动跳转到 <code>http://localhost:8888</code>，在此页面中正常使用</p>
+                    </div>
+                </div>
+            </div>
+            <p style="margin-top:16px;color:#999;font-size:0.8rem;">
+                为什么需要这一步？浏览器禁止本地文件发起跨域HTTP请求，本地代理服务器可以绕过这个限制。
+            </p>
+            <button class="file-overlay-dismiss" onclick="document.getElementById('fileOverlay').style.display='none'">
+                我知道了，但我还是想试试（会失败）
+            </button>
+        </div>
+    </div>
+
+    <div class="container">
+        <!-- API配置 -->
+        <div class="card">
+            <div class="card-title">
+                <span class="icon">⚙️</span> API 配置
+                <button class="btn btn-sm btn-secondary" style="margin-left:auto;" onclick="this.closest('.card').querySelector('#cfgBody').style.display=this.closest('.card').querySelector('#cfgBody').style.display==='none'?'block':'none'">展开/收起</button>
+            </div>
+            <div id="cfgBody" style="display:block;">
+                <div class="form-grid">
+                    <div class="form-group full">
+                        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">
+                            <label>API URL <span class="required">*</span></label>
+                            <div style="display:flex;align-items:center;gap:8px;">
+                                <span class="mode-indicator" id="modeBadge"></span>
+                                <span class="mode-toggle" id="modeToggle" onclick="toggleApiMode()" title="在代理模式和直接模式之间切换">切换模式</span>
+                            </div>
+                        </div>
+                        <div class="url-test-row">
+                            <div class="form-group" style="flex:1;">
+                                <input type="text" id="apiUrl" value="https://integrate.api.nvidia.com/v1" oninput="clearTestResult()">
+                            </div>
+                            <button class="btn-test" id="testBtn" onclick="testConnection()">🔍 测试连接</button>
+                        </div>
+                        <div class="proxy-note" id="proxyNote">
+                            🔄 <b>代理模式已启用</b> — API请求通过同源代理转发，自动绕过浏览器CORS限制。不需要在API服务器上额外配置CORS。
+                        </div>
+                        <div class="test-result" id="testResult"></div>
+                    </div>
+                    <div class="form-group">
+                        <label>模型名称 <span class="required">*</span></label>
+                        <input type="text" id="modelName" value="nvidia/nemotron-3-ultra-550b-a55b">
+                    </div>
+                    <div class="form-group full">
+                        <label>⚡ 运行方式</label>
+                        <div style="display:flex;gap:12px;flex-wrap:wrap;">
+                            <button class="btn-test" onclick="showLocalGuide()" style="background:#E8F5E9;color:#2E7D32;border:1px solid #A5D6A7;font-size:0.82rem;">🖥️ 本地运行（推荐）</button>
+                            <button class="btn-test" onclick="showCloudGuide()" style="background:#E3F2FD;color:#1565C0;border:1px solid #90CAF9;font-size:0.82rem;">☁️ 免费云端部署</button>
+                        </div>
+                        <div id="guideBox" style="display:none;margin-top:10px;padding:12px;background:#f9f9f9;border-radius:8px;font-size:0.82rem;color:#555;line-height:1.8;"></div>
+                    </div>
+                    <div class="form-group full">
+                        <label>API Key <span class="required">*</span> <span class="hint">（自行填写，不会上传到任何服务器）</span></label>
+                        <div class="api-key-row">
+                            <div class="form-group" style="flex:1;">
+                                <input type="password" id="apiKey" placeholder="请输入API Key" oninput="onApiKeyInput()">
+                                <div class="api-key-status" id="apiKeyStatus"></div>
+                            </div>
+                            <button class="btn-confirm" id="apiKeyConfirmBtn" onclick="confirmApiKey()">✅ 确定</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 学生信息 -->
+        <div class="card">
+            <div class="card-title"><span class="icon">👨‍🎓</span> 学生基本信息</div>
+            <div class="form-grid">
+                <div class="form-group"><label>学生姓名 <span class="required">*</span></label><input type="text" id="studentName" placeholder="如：杜鑫垒"></div>
+                <div class="form-group"><label>学校 <span class="required">*</span></label><input type="text" id="school" placeholder="如：七中实验"></div>
+                <div class="form-group"><label>年级 <span class="required">*</span></label><select id="grade"><option value="">请选择</option><option value="高一">高一</option><option value="高二">高二</option><option value="高三">高三</option><option value="高一升高二">高一升高二</option><option value="高二升高三" selected>高二升高三</option></select></div>
+                <div class="form-group"><label>目前进度 <span class="required">*</span></label><input type="text" id="currentProgress" placeholder="如：刚上完高二下期内容"></div>
+                <div class="form-group"><label>规划上课时间 <span class="required">*</span></label><input type="text" id="planTime" placeholder="如：暑假7月-9月"></div>
+                <div class="form-group"><label>上课节数 <span class="required">*</span></label><input type="number" id="lessonCount" placeholder="如：16" min="1"></div>
+                <div class="form-group"><label>课时数 <span class="required">*</span></label><input type="number" id="totalHours" placeholder="如：32" min="1"></div>
+                <div class="form-group"><label>学习内容范围 <span class="required">*</span></label><input type="text" id="contentScope" placeholder="如：从运动学到牛顿第二定律"></div>
+                <div class="form-group full"><label>学生优点 <span class="required">*</span></label><textarea id="strengths" placeholder="如：学习能力强，计算能力好，上课认真"></textarea></div>
+                <div class="form-group full"><label>学生缺点 <span class="required">*</span></label><textarea id="weaknesses" placeholder="如：课后作业完成度不高，知识点记背不牢"></textarea></div>
+            </div>
+        </div>
+
+        <!-- 教师反馈 -->
+        <div class="card">
+            <div class="card-title"><span class="icon">📋</span> 近期教师课堂反馈</div>
+            <div class="tab-buttons">
+                <button class="tab-btn active" onclick="switchTab('text')">📝 文字反馈</button>
+                <button class="tab-btn" onclick="switchTab('image')">🖼️ 图片反馈（最多9张）</button>
+            </div>
+            <div id="tab-text" class="tab-content active">
+                <div class="form-group">
+                    <label>教师反馈文字 <span class="hint">（可选）</span></label>
+                    <textarea id="feedbackText" rows="6" placeholder="粘贴教师的课堂反馈内容..."></textarea>
+                </div>
+                <div class="template-hint" onclick="fillTemplate()">
+                    <span>💡</span><span>点击此处填入示例反馈模板（方便测试）</span>
+                </div>
+            </div>
+            <div id="tab-image" class="tab-content">
+                <div class="form-group"><label>上传反馈图片 <span class="hint">（可选，最多9张）</span></label></div>
+                <div class="upload-zone" id="uploadZone" onclick="document.getElementById('imageInput').click()">
+                    <div class="icon">📸</div><div class="text">点击上传或拖拽图片到此处</div><div class="limit">最多9张 · 每张≤10MB</div>
+                </div>
+                <input type="file" id="imageInput" accept="image/*" multiple style="display:none;">
+                <div class="preview-grid" id="previewGrid"></div>
+            </div>
+        </div>
+
+        <!-- 生成 -->
+        <button class="btn btn-primary" id="generateBtn" onclick="generatePlan()">🚀 生成学习规划</button>
+        <div class="progress-container" id="progressContainer">
+            <div class="progress-bar"><div class="fill"></div></div>
+            <div class="progress-text">AI正在分析学生情况并生成规划方案，请稍候...</div>
+        </div>
+        <div class="warning-box" id="warningBox"></div>
+        <div class="error-box" id="errorBox"></div>
+        <div class="diag-box" id="diagBox"></div>
+        <div id="errorSolution" style="display:none;text-align:center;margin-top:12px;">
+            <button class="btn-download-offline" onclick="downloadOfflineVersion()" style="display:inline-flex;align-items:center;gap:6px;font-size:1rem;padding:12px 28px;">
+                📥 一键下载离线版（解决混合内容问题）
+            </button>
+            <p style="font-size:0.82rem;color:#E65100;margin-top:8px;">下载后用浏览器打开，即可在 file:// 协议下自由调用 HTTP API</p>
+        </div>
+        <div class="result-container" id="resultContainer">
+            <div class="card">
+                <div class="card-title"><span class="icon">✅</span> 生成成功！</div>
+                <div class="result-card">
+                    <h3>📥 下载文件</h3>
+                    <div class="download-buttons">
+                        <button class="download-btn excel" id="excelDownload">📊 下载 Excel 课规表</button>
+                        <button class="download-btn word" id="wordDownload">📄 下载 Word 辅导方案</button>
+                    </div>
+                    <div class="summary-grid" id="summaryGrid"></div>
+                    <div id="phaseCards"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="footer">美博教育 · 成都 · 专注一对一深度辅导</div>
+
+    <script>
+        // ===== 页面初始化（detectApiMode 在 DOMContentLoaded 时自动执行）=====
+
+        // ===== 一键下载离线版 =====
+        function downloadOfflineVersion() {
+            // 获取当前页面完整HTML源码
+            const htmlContent = document.documentElement.outerHTML;
+            // 确保以正确编码保存
+            const fullDoc = '<!DOCTYPE html>\n' + htmlContent;
+            const blob = new Blob(['\ufeff' + fullDoc], { type: 'text/html;charset=utf-8' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = '高中物理学习规划生成器_离线版.html';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+
+            // 下载后提示
+            const banner = document.getElementById('protocolBanner');
+            if (banner && banner.classList.contains('show')) {
+                banner.querySelector('.banner-inner').innerHTML = `
+                    <span class="banner-icon">✅</span>
+                    <span class="banner-text">
+                        <strong>下载成功！</strong>
+                        请在下载文件夹中找到 <code>高中物理学习规划生成器_离线版.html</code>，双击用浏览器打开即可正常使用。
+                    </span>
+                `;
+                banner.style.background = 'linear-gradient(135deg, #E8F5E9, #C8E6C9)';
+                banner.style.borderBottomColor = '#4CAF50';
+                banner.style.color = '#1B5E20';
+                // 3秒后隐藏
+                setTimeout(() => { banner.classList.remove('show'); }, 8000);
+            }
+        }
+        // ===== API Key 确认管理 =====
+        let apiKeyConfirmed = false;
+
+        function onApiKeyInput() {
+            // 用户修改了API Key后重置确认状态
+            if (apiKeyConfirmed) {
+                apiKeyConfirmed = false;
+                const btn = document.getElementById('apiKeyConfirmBtn');
+                const status = document.getElementById('apiKeyStatus');
+                btn.classList.remove('confirmed');
+                btn.textContent = '✅ 确定';
+                status.classList.remove('confirmed');
+                status.textContent = '';
+            }
+        }
+
+        function confirmApiKey() {
+            const keyInput = document.getElementById('apiKey');
+            const key = keyInput.value.trim();
+            if (!key) {
+                const status = document.getElementById('apiKeyStatus');
+                status.textContent = '请先输入API Key';
+                status.style.color = '#C62828';
+                return;
+            }
+            apiKeyConfirmed = true;
+            const btn = document.getElementById('apiKeyConfirmBtn');
+            const status = document.getElementById('apiKeyStatus');
+            btn.classList.add('confirmed');
+            btn.textContent = '✅ 已确认';
+            status.classList.add('confirmed');
+            status.textContent = 'API Key已确认，可安全使用';
+            status.style.color = '';
+        }
+
+        // ===== 运行方式引导 =====
+        function showLocalGuide() {
+            const box = document.getElementById('guideBox');
+            box.style.display = 'block';
+            box.innerHTML = `
+                <b>🖥️ 本地运行（最简单，零CORS问题）</b><br><br>
+                <b>步骤：</b><br>
+                1. 确保已安装 <a href="https://nodejs.org/" target="_blank">Node.js</a><br>
+                2. 双击运行 <code>start.bat</code>（Windows）或 <code>start.sh</code>（Mac/Linux）<br>
+                3. 浏览器自动打开 <code>http://localhost:3000</code><br>
+                4. 页面和API同源，彻底无CORS问题<br><br>
+                <b>所需文件：</b>server.js / index.html / package.json / start.bat
+            `;
+        }
+
+        function showCloudGuide() {
+            const box = document.getElementById('guideBox');
+            box.style.display = 'block';
+            box.innerHTML = `
+                <b>☁️ 免费云端部署（获得永久网址）</b><br><br>
+                <b>方案A：Render.com（推荐，免费）</b><br>
+                1. 访问 <a href="https://render.com" target="_blank">render.com</a> 注册<br>
+                2. 上传 web_app 文件夹到 GitHub<br>
+                3. Render.com 连接 GitHub 仓库，自动部署<br>
+                4. 获得 <code>https://xxx.onrender.com</code> 永久网址<br><br>
+                <b>方案B：Cloudflare Workers（免费，每天10万请求）</b><br>
+                1. 访问 <a href="https://dash.cloudflare.com" target="_blank">dash.cloudflare.com</a> 注册<br>
+                2. 创建 Worker，粘贴 <code>cloudflare-worker.js</code> 的代码<br>
+                3. 部署后获得 <code>*.workers.dev</code> 网址<br>
+                4. 在页面API URL处填写该Worker网址<br><br>
+                <b>所需文件：</b>已包含在 web_app/ 文件夹中
+            `;
+        }
+
+        // ===== 模式检测：代理模式 vs 直接模式 =====
+        let apiMode = 'direct'; // 'proxy' | 'direct'
+        const PROXY_API_URL = '/api';
+        const DIRECT_API_URL = 'https://integrate.api.nvidia.com/v1';
+
+        async function detectApiMode() {
+            const protocol = window.location.protocol;
+
+            // file:// 协议 → 显示全屏覆盖层引导用户使用代理服务器
+            if (protocol === 'file:') {
+                document.getElementById('fileOverlay').classList.add('show');
+                return;
+            }
+
+            // HTTP/HTTPS 环境：探测 /health 端点判断是否有后端代理
+            try {
+                const resp = await fetch('/health', { method: 'GET', signal: AbortSignal.timeout(3000) });
+                if (resp.ok) {
+                    // 后端服务器在运行（localhost 或 Render.com 等）→ 代理模式
+                    setApiMode('proxy');
+                    return;
+                }
+            } catch (e) {
+                // /health 不存在 → 静态部署，无后端
+            }
+
+            // 静态部署（CloudStudio等）→ 直接模式，提示CORS风险
+            setApiMode('direct');
+            const protocolBanner = document.getElementById('protocolBanner');
+            const bannerText = document.getElementById('bannerText');
+            if (protocolBanner && bannerText) {
+                bannerText.innerHTML = '<strong>⚠️ 静态部署模式</strong> 当前页面无后端代理，<br>调用AI API可能遇到<b>CORS跨域限制</b>。<br><br>✅ <b>推荐</b>：将 server.js 部署到 Render.com 等 Node.js 云平台。';
+                protocolBanner.classList.add('show');
+            }
+        }
+
+        function setApiMode(mode) {
+            apiMode = mode;
+            const urlInput = document.getElementById('apiUrl');
+            const badge = document.getElementById('modeBadge');
+            const proxyNote = document.getElementById('proxyNote');
+            const toggle = document.getElementById('modeToggle');
+            const protocolBanner = document.getElementById('protocolBanner');
+            const cfgBody = document.getElementById('cfgBody');
+
+            if (mode === 'proxy') {
+                urlInput.value = PROXY_API_URL;
+                urlInput.readOnly = false;
+                badge.className = 'mode-indicator mode-proxy';
+                badge.textContent = '🔄 代理模式';
+                proxyNote.classList.add('show');
+                toggle.textContent = '切换到直接模式';
+                // 代理模式下不显示警告横幅
+                if (protocolBanner) protocolBanner.classList.remove('show');
+                // 自动展开API配置区
+                if (cfgBody) cfgBody.style.display = 'block';
+            } else {
+                urlInput.value = DIRECT_API_URL;
+                urlInput.readOnly = false;
+                badge.className = 'mode-indicator mode-direct';
+                badge.textContent = '🔗 直接模式';
+                proxyNote.classList.remove('show');
+                toggle.textContent = '切换到代理模式';
+                // 直接模式下，根据协议显示不同横幅
+                if (protocolBanner) {
+                    const bannerText = document.getElementById('bannerText');
+                    if (window.location.protocol === 'https:') {
+                        // HTTPS + HTTPS API → 无混合内容问题，不显示警告
+                        protocolBanner.classList.remove('show');
+                    } else if (window.location.protocol === 'file:') {
+                        // file:// 下有专门的全屏覆盖层，横幅不显示以避免干扰
+                        protocolBanner.classList.remove('show');
+                    } else {
+                        protocolBanner.classList.remove('show');
+                    }
+                }
+            }
+            clearTestResult();
+        }
+
+        function toggleApiMode() {
+            if (apiMode === 'proxy') {
+                setApiMode('direct');
+            } else {
+                setApiMode('proxy');
+            }
+        }
+
+        // 页面加载时自动检测
+        window.addEventListener('DOMContentLoaded', detectApiMode);
+
+        // ===== 测试连接 ====="
+        function clearTestResult() {
+            const resultDiv = document.getElementById('testResult');
+            resultDiv.classList.remove('show', 'success', 'error');
+            resultDiv.innerHTML = '';
+        }
+
+        async function testConnection() {
+            // file:// 协议下直接阻止（按钮已禁用，此处为双重保险）
+            if (window.location.protocol === 'file:') {
+                document.getElementById('fileOverlay').classList.add('show');
+                return;
+            }
+            const apiUrl = document.getElementById('apiUrl').value.trim();
+            const apiKey = document.getElementById('apiKey').value.trim();
+            const model = document.getElementById('modelName').value.trim();
+            const btn = document.getElementById('testBtn');
+            const resultDiv = document.getElementById('testResult');
+
+            if (!apiUrl) {
+                showTestResult('error', '请先填写API URL');
+                return;
+            }
+
+            btn.disabled = true;
+            btn.innerHTML = '<span class="spinner"></span> 检测中...';
+            resultDiv.classList.remove('show', 'success', 'error');
+
+            // 代理模式：请求发到同源 /api/test（无CORS问题）
+            // 直接模式：直接请求API（可能有CORS问题，但用户明确选择直连）
+            const testUrl = apiMode === 'proxy'
+                ? '/api/test'
+                : `${apiUrl}/chat/completions`;
+            const startTime = Date.now();
+
+            try {
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 15000);
+
+                const fetchOpts = {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    signal: controller.signal
+                };
+
+                if (apiMode === 'proxy') {
+                    // 代理模式：把 apiUrl/apiKey/model 发给同源代理服务器
+                    fetchOpts.body = JSON.stringify({ apiUrl, apiKey, model });
+                } else {
+                    fetchOpts.headers['Authorization'] = `Bearer ${apiKey}`;
+                    fetchOpts.body = JSON.stringify({
+                        model: model,
+                        messages: [{ role: 'user', content: 'hi' }],
+                        max_tokens: 5
+                    });
+                }
+
+                const resp = await fetch(testUrl, fetchOpts);
+
+                clearTimeout(timeoutId);
+                const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
+                const respText = await resp.text();
+
+                if (resp.ok) {
+                    showTestResult('success', `
+                        ✅ <b>连接成功！</b>（耗时 ${elapsed}s）<br>
+                        <div class="diag-line">请求URL: <code>${escapeHtml(testUrl)}</code></div>
+                        <div class="diag-line">状态码: <b>${resp.status} OK</b></div>
+                        <div class="diag-line">模型: <code>${escapeHtml(model)}</code></div>
+                        <div class="diag-line" style="margin-top:8px;">🎉 API服务正常运行，可以开始生成规划！</div>
+                    `);
+                } else {
+                    showTestResult('error', `
+                        ❌ <b>API返回错误</b>（耗时 ${elapsed}s）<br>
+                        <div class="diag-line">请求URL: <code>${escapeHtml(testUrl)}</code></div>
+                        <div class="diag-line">状态码: <b>${resp.status}</b></div>
+                        <div class="diag-line">响应内容: <code>${escapeHtml(respText.substring(0, 300))}</code></div>
+                        <div class="diag-line" style="margin-top:8px;">
+                            ${resp.status === 401 ? '👉 可能原因：API Key无效或未授权' :
+                              resp.status === 404 ? '👉 可能原因：模型名称不正确或API路径有误' :
+                              resp.status === 500 ? '👉 可能原因：API服务器内部错误，模型可能不可用' :
+                              '👉 请检查API Key和模型名称是否正确'}
+                        </div>
+                    `);
+                }
+            } catch (e) {
+                const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
+                let diagMsg = '';
+
+                if (e.name === 'AbortError') {
+                    diagMsg = `⏱️ <b>连接超时</b>（超过15秒无响应）<br>
+                        <div class="diag-line">请求URL: <code>${escapeHtml(testUrl)}</code></div>
+                        <div class="diag-line" style="margin-top:8px;">👉 可能原因：</div>
+                        <div class="diag-line">1. API服务未启动或URL不正确</div>
+                        <div class="diag-line">2. API服务器从您的网络不可达</div>
+                        <div class="diag-line">3. 防火墙或网络策略阻止了访问</div>
+                        <div class="diag-line" style="margin-top:8px;">💡 建议：检查API URL是否正确，以及网络是否通畅</div>`;
+                } else if (e.message.includes('Failed to fetch') || e.message.includes('NetworkError')) {
+                    diagMsg = `🔌 <b>网络连接失败</b>（耗时 ${elapsed}s）<br>
+                        <div class="diag-line">请求URL: <code>${escapeHtml(testUrl)}</code></div>
+                        <div class="diag-line">错误: ${escapeHtml(e.message)}</div>
+                        <div class="diag-line" style="margin-top:8px;">👉 可能原因：</div>
+                        <div class="diag-line">1. API服务未启动</div>
+                        <div class="diag-line">2. 该IP地址从您的网络不可达</div>
+                        <div class="diag-line">3. 服务器拒绝了跨域请求（CORS），而 file:// 来源被拦截</div>
+                        <div class="diag-line" style="margin-top:8px;">💡 如果 ping 能通但 fetch 失败，可能是CORS问题 — 请确认API服务器允许 file:// 来源或配置了 CORS 白名单</div>`;
+                } else {
+                    diagMsg = `❌ <b>未知错误</b>（耗时 ${elapsed}s）<br>
+                        <div class="diag-line">请求URL: <code>${escapeHtml(testUrl)}</code></div>
+                        <div class="diag-line">错误: <code>${escapeHtml(e.message)}</code></div>`;
+                }
+
+                showTestResult('error', diagMsg);
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = '🔍 测试连接';
+            }
+        }
+
+        function showTestResult(type, html) {
+            const resultDiv = document.getElementById('testResult');
+            resultDiv.className = 'test-result show ' + type;
+            resultDiv.innerHTML = html;
+        }
+
+        function escapeHtml(str) {
+            const div = document.createElement('div');
+            div.textContent = str;
+            return div.innerHTML;
+        }
+
+        // ===== 图片管理 =====
+        let selectedImages = [];
+        const uploadZone = document.getElementById('uploadZone');
+        uploadZone.addEventListener('dragover', e => { e.preventDefault(); uploadZone.classList.add('drag-over'); });
+        uploadZone.addEventListener('dragleave', () => uploadZone.classList.remove('drag-over'));
+        uploadZone.addEventListener('drop', e => {
+            e.preventDefault(); uploadZone.classList.remove('drag-over');
+            addImages(Array.from(e.dataTransfer.files));
+        });
+        document.getElementById('imageInput').addEventListener('change', e => {
+            addImages(Array.from(e.target.files)); e.target.value = '';
+        });
+        function addImages(files) {
+            const remaining = 9 - selectedImages.length;
+            selectedImages = [...selectedImages, ...files.slice(0, remaining).filter(f => f.type.startsWith('image/'))];
+            if (selectedImages.length > 9) selectedImages = selectedImages.slice(0, 9);
+            renderPreviews();
+        }
+        function removeImage(i) { selectedImages.splice(i, 1); renderPreviews(); }
+        function renderPreviews() {
+            const grid = document.getElementById('previewGrid'); grid.innerHTML = '';
+            selectedImages.forEach((file, i) => {
+                const reader = new FileReader();
+                reader.onload = e => {
+                    const div = document.createElement('div'); div.className = 'preview-item';
+                    div.innerHTML = `<img src="${e.target.result}"><button class="remove" onclick="removeImage(${i})">✕</button>`;
+                    grid.appendChild(div);
+                };
+                reader.readAsDataURL(file);
+            });
+        }
+        function switchTab(tab) {
+            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+            document.querySelector(tab === 'text' ? '.tab-btn:nth-child(1)' : '.tab-btn:nth-child(2)').classList.add('active');
+            document.getElementById(tab === 'text' ? 'tab-text' : 'tab-image').classList.add('active');
+        }
+        function fillTemplate() {
+            document.getElementById('feedbackText').value = `鑫垒家长中午好，今天物理课程反馈如下：
+
+👨🏻‍🏫课堂内容
+光电效应
+
+📚课堂情况
+今天我们主要往后学习的近代物理中的光电效应部分，光电效应是近代物理这章最难的一个知识点，内容相对是比较多的，需要孩子记住的结论也是比较多的，需要孩子把这些内容全部记住后，能够灵活的融会贯通起来，目前课上我们给孩子讲完后，孩子还是对知识点不太熟悉，还需要结合一些题型来进行练习，因为课上讲的比较详细，花的时间比较多，练习量是不太够的，所以这一周给孩子布置的作业相对会多一些，还需要孩子课后再自行进行一些巩固。`;
+        }
+
+        // ===== AI系统提示词 =====
+        const SYSTEM_PROMPT = `你是一位专业的高中物理教育规划专家，基于美博教育二十多年的教学经验，为学生提供科学、系统的高中物理学习规划。
+
+## 核心能力
+1. 五维度学情剖析：基础掌握、学习习惯、应试能力、心理状态、性格特点
+2. 课程规划：按基础夯实→深化突破→综合复习递进设计
+3. 题型分值目标：基于高考物理题型分值结构设定
+
+## 高考物理知识体系
+必修1：运动学（匀变速、图像）→力学（三种力、受力分析、共点力平衡）→牛顿定律（瞬时性、超重失重、连接体、传送带、板块）
+必修2：曲线运动（平抛、圆周）→万有引力（卫星变轨）→机械能（动能定理、能量守恒）→动量
+选修3-1：电场→恒定电流→磁场
+选修3-2：电磁感应→交变电流
+选修3-3/3-4/3-5：热学→机械振动机械波→光学→原子物理
+
+## 输出要求
+必须以JSON格式返回以下结构，不要省略任何字段（注意：课程设计遵循A→B→C递进逻辑，但不要显式标注）：
+
+{
+  "student_analysis": {
+    "basic": "物理基础掌握情况，2-3句具体分析",
+    "habit": "学习习惯分析，2-3句",
+    "exam": "应试能力分析，2-3句",
+    "psychology": "心理状态，1-2句",
+    "personality": "性格特点，1句",
+    "overall_suggestion": "综合建议，2-3句"
+  },
+  "teacher_feedback_summary": [
+    {"topic": "知识点", "content": "反馈摘要（如无反馈则为空数组）", "insight": "教学启示"}
+  ],
+  "course_plan": [
+    {"lesson": 1, "module": "模块名", "content": "具体内容，写清知识点和题型", "hours": 2, "goal": "本课次目标"}
+  ],
+  "teaching_approach": {
+    "phase1": {"name": "基础夯实期", "period": "时间段", "focus": "重点", "strategy": "策略"},
+    "phase2": {"name": "深化突破期", "period": "时间段", "focus": "重点", "strategy": "策略"},
+    "phase3": {"name": "综合冲刺期", "period": "时间段", "focus": "重点", "strategy": "策略"}
+  },
+  "expected_goals": {
+    "single_choice": {"score": 28, "target": 20},
+    "multi_choice": {"score": 18, "target": 12},
+    "experiment": {"score": 16, "target": 12},
+    "question_13": {"score": 10, "target": 8},
+    "question_14": {"score": 12, "target": 8},
+    "question_15": {"score": 16, "target": 10},
+    "total_target": 70
+  },
+  "suggestions": ["建议1", "建议2", "建议3"]
+}
+
+重要规则：
+- course_plan的lesson从1开始连续编号，每课次2小时
+- content要非常具体，写清楚教哪些知识点和哪些题型
+- 根据学生优缺点调整课程重点
+- 使用"孩子"称呼学生
+- total_target = 各题型target之和`;
+
+        // ===== 调用AI =====
+        async function callAI(apiUrl, apiKey, model, userContent, images) {
+            const messages = [{ role: 'system', content: SYSTEM_PROMPT }];
+
+            if (images.length > 0) {
+                const contentArray = [{ type: 'text', text: userContent }];
+                for (const imgBase64 of images) {
+                    contentArray.push({ type: 'image_url', image_url: { url: `data:image/png;base64,${imgBase64}` } });
+                }
+                messages.push({ role: 'user', content: contentArray });
+            } else {
+                messages.push({ role: 'user', content: userContent });
+            }
+
+            // 代理模式：请求发到同源 /api/chat/completions（无CORS问题）
+            // 直接模式：直接请求API（需要API服务器支持CORS）
+            const fullUrl = apiMode === 'proxy'
+                ? '/api/chat/completions'
+                : `${apiUrl}/chat/completions`;
+
+            const requestBody = apiMode === 'proxy'
+                ? JSON.stringify({ apiUrl, apiKey, model, messages, temperature: 0.7, max_tokens: 8192 })
+                : JSON.stringify({ model, messages, temperature: 0.7, max_tokens: 8192 });
+
+            const fetchHeaders = { 'Content-Type': 'application/json' };
+            if (apiMode !== 'proxy') {
+                fetchHeaders['Authorization'] = `Bearer ${apiKey}`;
+            }
+
+            // 超时控制：120秒（AI生成规划需要较长时间）
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 120000);
+
+            const resp = await fetch(fullUrl, {
+                method: 'POST',
+                headers: fetchHeaders,
+                body: requestBody,
+                signal: controller.signal
+            }).catch(e => {
+                clearTimeout(timeoutId);
+                if (e.name === 'AbortError') {
+                    throw new Error(`AI响应超时（>120秒）\\n请求URL: ${fullUrl}\\n可能原因：模型处理时间过长或服务负载过高，请稍后重试`);
+                }
+                if (e.message.includes('Failed to fetch') || e.message.includes('NetworkError')) {
+                    if (apiMode === 'proxy') {
+                        throw new Error(`无法连接到本地代理服务器\\n请求路径: ${fullUrl}\\n\\n可能原因：\\n1. 代理服务器未启动\\n2. 端口被占用\\n\\n💡 请双击运行 start.bat 启动代理服务器`);
+                    }
+                    throw new Error(`无法连接到API服务\\n请求URL: ${fullUrl}\\n\\n可能原因：\\n1. API服务不可达\\n2. 浏览器CORS策略阻止了请求\\n\\n💡 建议切换到代理模式（页面左上角"切换模式"），然后双击运行 start.bat`);
+                }
+                throw e;
+            });
+
+            clearTimeout(timeoutId);
+
+            // 一次性读取响应文本（避免重复消费）
+            const rawText = await resp.text().catch(() => '');
+
+            if (!resp.ok) {
+                const isHtml = rawText.trim().startsWith('<!') || rawText.trim().startsWith('<html');
+                let errSnippet = rawText.substring(0, 500);
+                if (isHtml) {
+                    const titleMatch = rawText.match(/<title>([^<]*)<\/title>/i);
+                    errSnippet = titleMatch ? `HTML网页（${titleMatch[1]}）` : 'HTML网页';
+                }
+                throw new Error(`API返回错误 (状态码${resp.status})\\n请求URL: ${fullUrl}\\n响应: ${errSnippet}\\n\\n${resp.status === 401 ? '👉 API Key无效或未授权' : resp.status === 404 ? '👉 模型名称或API路径不正确，请确认API URL以 /v1 结尾' : resp.status === 500 ? '👉 API服务器内部错误' : '👉 请检查API配置并点击"🔍 测试连接"诊断'}`);
+            }
+
+            let data;
+            try {
+                data = JSON.parse(rawText);
+            } catch (jsonErr) {
+                const isHtml = rawText.trim().startsWith('<!') || rawText.trim().startsWith('<html');
+                let diagMsg = `AI API返回了非JSON内容（状态码${resp.status})\\n请求URL: ${fullUrl}\\n`;
+                if (isHtml) {
+                    const titleMatch = rawText.match(/<title>([^<]*)<\/title>/i);
+                    const pageTitle = titleMatch ? titleMatch[1] : '未知页面';
+                    diagMsg += `\\n收到的是HTML网页（${pageTitle}）`;
+                    diagMsg += `\\n\\n🔍 常见原因：`;
+                    diagMsg += `\\n1. API URL 不正确 — 请确认以 /v1 结尾`;
+                    diagMsg += `\\n2. 代理服务器未正常转发 — 检查 server.py 控制台`;
+                    diagMsg += `\\n3. API服务返回默认页面而非模型接口`;
+                    diagMsg += `\\n\\n💡 请先点击API配置区的"🔍 测试连接"按钮诊断`;
+                } else {
+                    diagMsg += `\\n收到内容: ${rawText.substring(0, 300)}`;
+                }
+                throw new Error(diagMsg);
+            }
+            if (!data.choices || !data.choices[0] || !data.choices[0].message) {
+                throw new Error(`AI返回了非预期的响应格式\\n原始响应: ${JSON.stringify(data).substring(0, 300)}`);
+            }
+            let text = data.choices[0].message.content;
+
+            // 提取JSON
+            try { return JSON.parse(text); } catch(e) {}
+            const m = text.match(/```(?:json)?\s*([\s\S]*?)```/) || text.match(/(\{[\s\S]*\})/);
+            if (m) return JSON.parse(m[1]);
+            throw new Error('无法从AI回复中提取有效JSON规划数据。\\n\\nAI原始回复片段: ' + text.substring(0, 300) + '...');
+        }
+
+        // ===== 生成Excel（客户端） =====
+        function generateExcel(studentName, planData) {
+            const BRAND_GREEN = '2E7D32';
+            const wb = XLSX.utils.book_new();
+            const ws_data = [
+                [{ v: `${studentName} 物理课规表`, t: 's' }],
+            ];
+
+            // 空行作间距
+            ws_data.push([]);
+            ws_data.push(['课次', '课程模块', '课程内容', '课时安排', '课程目标']);
+
+            const coursePlan = planData.course_plan || [];
+            coursePlan.forEach(item => {
+                ws_data.push([
+                    item.lesson || '',
+                    item.module || '',
+                    item.content || '',
+                    `${item.hours || 2}h`,
+                    item.goal || ''
+                ]);
+            });
+
+            const ws = XLSX.utils.aoa_to_sheet(ws_data);
+
+            // 样式
+            ws['!merges'] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: 4 } }];
+            ws['!cols'] = [{ wch: 8 }, { wch: 16 }, { wch: 50 }, { wch: 10 }, { wch: 35 }];
+
+            XLSX.utils.book_append_sheet(wb, ws, '课规表');
+            const buf = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+            return new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+        }
+
+        // ===== 生成Word（客户端 - 使用Blob方式生成基础docx） =====
+        function generateWord(studentName, studentInfo, planData) {
+            const analysis = planData.student_analysis || {};
+            const goals = planData.expected_goals || {};
+            const suggestions = planData.suggestions || [];
+            const feedbacks = planData.teacher_feedback_summary || [];
+            const coursePlan = planData.course_plan || [];
+            const phases = planData.teaching_approach || {};
+
+            // 构建HTML（Word可以解析HTML格式的doc）
+            let html = `
+            <html xmlns:o="urn:schemas-microsoft-com:office:office"
+                  xmlns:w="urn:schemas-microsoft-com:office:word"
+                  xmlns="http://www.w3.org/TR/REC-html40">
+            <head><meta charset="utf-8">
+            <style>
+                @page { size: A4; margin: 2cm; }
+                body { font-family: '宋体', SimSun; font-size: 12pt; line-height: 1.8; color: #333; }
+                h1 { font-size: 22pt; color: #2E7D32; text-align: center; font-weight: bold; margin-bottom: 5pt; }
+                h2 { font-size: 18pt; color: #2E7D32; text-align: center; margin-bottom: 5pt; }
+                h3 { font-size: 14pt; color: #2E7D32; margin-top: 20pt; }
+                h4 { font-size: 12pt; color: #2E7D32; }
+                p { text-indent: 2em; margin: 6pt 0; }
+                table { border-collapse: collapse; width: 100%; margin: 10pt 0; }
+                th, td { border: 1px solid #333; padding: 6pt; font-size: 11pt; }
+                th { background: #2E7D32; color: white; text-align: center; }
+                .cover { text-align: center; margin-top: 200pt; }
+                .footer-text { text-align: center; color: #666; font-size: 9pt; }
+                .insight { color: #2E7D32; font-weight: bold; }
+            </style></head><body>`;
+
+            // 封面
+            html += `<div class="cover"><h1>美博教育个性化辅导方案</h1>
+            <h2>${studentName} 同学 物理 辅导</h2>
+            <p style="text-align:center;font-size:11pt;color:#666;">${studentInfo.school || ''} | ${studentInfo.grade || ''}</p>
+            <p style="text-align:center;font-size:12pt;margin-top:30pt;">成都美博教育</p></div>
+            <br style="page-break-after:always;">`;
+
+            // 一、学生剖析
+            html += `<h3>一、学生情况剖析</h3>`;
+            const sections = {
+                basic: '1.1 物理基础掌握情况', habit: '1.2 物理学习习惯',
+                exam: '1.3 物理应试能力', psychology: '1.4 物理学习心理状态',
+                personality: '1.5 学生性格特点'
+            };
+            for (const [key, title] of Object.entries(sections)) {
+                if (analysis[key]) html += `<h4>${title}</h4><p>${analysis[key]}</p>`;
+            }
+            if (analysis.overall_suggestion) html += `<h4>1.6 综合建议</h4><p>${analysis.overall_suggestion}</p>`;
+
+            // 二、教学内容
+            html += `<h3>二、教学基本内容及课时安排</h3><table><tr><th>课次</th><th>课程模块</th><th>课程内容</th><th>课时</th><th>课程目标</th></tr>`;
+            coursePlan.forEach(item => {
+                html += `<tr><td style="text-align:center;">${item.lesson}</td><td>${item.module}</td><td>${item.content}</td><td style="text-align:center;">${item.hours}h</td><td>${item.goal}</td></tr>`;
+            });
+            const totalH = coursePlan.reduce((s, i) => s + (i.hours || 2), 0);
+            html += `</table><p>共计${coursePlan.length}课次，${totalH}课时。课程设计遵循基础夯实→深化突破→综合复习的递进逻辑。</p>`;
+
+            // 三、教学思路
+            html += `<h3>三、个性化教学思路</h3>`;
+            let pi = 1;
+            for (const [key, phase] of Object.entries(phases)) {
+                html += `<h4>3.${pi} ${phase.name}（${phase.period}）</h4><p><b>重点：</b>${phase.focus}</p><p><b>策略：</b>${phase.strategy}</p>`;
+                pi++;
+            }
+
+            // 四、预期目标
+            html += `<h3>四、预期目标</h3><table><tr><th>题型</th><th>满分值</th><th>目标分值</th></tr>`;
+            const goalRows = [
+                ['单选题（7道）', goals.single_choice, 'single_choice'],
+                ['多选题（3道）', goals.multi_choice, 'multi_choice'],
+                ['实验题（2道）', goals.experiment, 'experiment'],
+                ['计算题13题', goals.question_13, 'question_13'],
+                ['计算题14题', goals.question_14, 'question_14'],
+                ['计算题15题', goals.question_15, 'question_15'],
+            ];
+            goalRows.forEach(([name, g]) => {
+                html += `<tr><td>${name}</td><td style="text-align:center;">${(g || {}).score || 0}分</td><td style="text-align:center;">${(g || {}).target || 0}分</td></tr>`;
+            });
+            html += `<tr><td><b>总计</b></td><td style="text-align:center;"><b>100分</b></td><td style="text-align:center;"><b>${goals.total_target || 0}分</b></td></tr></table>`;
+
+            // 五、建议
+            html += `<h3>五、学习建议与注意事项</h3>`;
+            suggestions.forEach((s, i) => { html += `<p>${i+1}. ${s}</p>`; });
+
+            // 教师反馈
+            if (feedbacks.length > 0) {
+                html += `<h3>附录：近期教师课堂反馈摘录</h3>`;
+                feedbacks.forEach(fb => {
+                    html += `<p><b>👨🏻‍🏫 课堂内容：${fb.topic || ''}</b></p>`;
+                    html += `<p>📚 ${fb.content || ''}</p>`;
+                    if (fb.insight) html += `<p class="insight">💡 教学启示：${fb.insight}</p>`;
+                });
+            }
+
+            html += `<br><p class="footer-text">美博深度辅导  好学习有动力</p></body></html>`;
+
+            return new Blob(['\ufeff' + html], { type: 'application/msword' });
+        }
+
+        // ===== 主流程 =====
+        async function generatePlan() {
+            // file:// 协议下直接阻止（按钮已禁用，此处为双重保险）
+            if (window.location.protocol === 'file:') {
+                document.getElementById('fileOverlay').classList.add('show');
+                return;
+            }
+            const btn = document.getElementById('generateBtn');
+            const progress = document.getElementById('progressContainer');
+            const errorBox = document.getElementById('errorBox');
+            const warningBox = document.getElementById('warningBox');
+            const diagBox = document.getElementById('diagBox');
+            const resultContainer = document.getElementById('resultContainer');
+            errorBox.classList.remove('active');
+            warningBox.classList.remove('active');
+            diagBox.classList.remove('show');
+            resultContainer.classList.remove('active');
+
+            // 验证必填
+            const fields = [
+                'studentName', 'school', 'grade', 'currentProgress',
+                'planTime', 'lessonCount', 'totalHours', 'contentScope', 'strengths', 'weaknesses'
+            ];
+            const labels = {
+                studentName: '学生姓名', school: '学校',
+                grade: '年级', currentProgress: '目前进度', planTime: '规划上课时间',
+                lessonCount: '上课节数', totalHours: '课时数', contentScope: '学习内容范围',
+                strengths: '学生优点', weaknesses: '学生缺点'
+            };
+            for (const fid of fields) {
+                const el = document.getElementById(fid);
+                if (!el.value.trim()) { showError(`请填写"${labels[fid]}"`); el.focus(); return; }
+            }
+
+            // 验证API Key已确认
+            if (!apiKeyConfirmed) {
+                showError('请先点击API Key输入框旁的"✅ 确定"按钮确认您的API Key');
+                document.getElementById('apiKey').focus();
+                return;
+            }
+
+            btn.disabled = true;
+            btn.innerHTML = '<span class="spinner"></span> AI正在分析中...';
+            progress.classList.add('active');
+
+            try {
+                const apiUrl = document.getElementById('apiUrl').value.trim();
+                const apiKey = document.getElementById('apiKey').value.trim();
+                const model = document.getElementById('modelName').value.trim();
+
+                // 构建用户消息
+                const userMsg = `请为以下学生生成高中物理学习规划：
+
+## 学生基本信息
+- 姓名：${document.getElementById('studentName').value}
+- 学校：${document.getElementById('school').value}
+- 年级：${document.getElementById('grade').value}
+- 目前进度：${document.getElementById('currentProgress').value}
+- 规划上课时间：${document.getElementById('planTime').value}
+- 上课节数：${document.getElementById('lessonCount').value}节
+- 课时数：${document.getElementById('totalHours').value}课时
+- 学习内容范围：${document.getElementById('contentScope').value}
+- 学生优点：${document.getElementById('strengths').value}
+- 学生缺点：${document.getElementById('weaknesses').value}
+${document.getElementById('feedbackText').value ? '\n## 教师课堂反馈（文字）\n' + document.getElementById('feedbackText').value : ''}
+${selectedImages.length > 0 ? '\n## 教师课堂反馈（图片）\n共' + selectedImages.length + '张反馈截图。' : ''}`;
+
+                // 处理图片
+                const imgBase64List = [];
+                for (const img of selectedImages) {
+                    imgBase64List.push(await fileToBase64(img));
+                }
+
+                // 调用AI
+                const planData = await callAI(apiUrl, apiKey, model, userMsg, imgBase64List);
+
+                // 生成文件
+                const studentName = document.getElementById('studentName').value;
+                const studentInfo = {
+                    school: document.getElementById('school').value,
+                    grade: document.getElementById('grade').value
+                };
+
+                const excelBlob = generateExcel(studentName, planData);
+                const wordBlob = generateWord(studentName, studentInfo, planData);
+
+                // 下载按钮
+                const excelBtn = document.getElementById('excelDownload');
+                const wordBtn = document.getElementById('wordDownload');
+                excelBtn.onclick = () => downloadBlob(excelBlob, `${studentName}_课规表.xlsx`);
+                wordBtn.onclick = () => downloadBlob(wordBlob, `${studentName}_辅导方案.doc`);
+
+                // 显示摘要
+                document.getElementById('summaryGrid').innerHTML = `
+                    <div class="summary-item"><div class="value">${planData.course_plan.length}</div><div class="label">课次数</div></div>
+                    <div class="summary-item"><div class="value">${planData.course_plan.reduce((s,i)=>s+(i.hours||2),0)}h</div><div class="label">总课时</div></div>
+                    <div class="summary-item"><div class="value">${planData.expected_goals?.total_target || 0}分</div><div class="label">预期目标分</div></div>
+                    <div class="summary-item"><div class="value">${Object.keys(planData.teaching_approach||{}).length}</div><div class="label">教学阶段</div></div>
+                `;
+
+                // 阶段卡片
+                let phaseHTML = '';
+                for (const [key, p] of Object.entries(planData.teaching_approach || {})) {
+                    phaseHTML += `<div class="phase-card"><h4>${p.name}（${p.period}）</h4><p><b>重点：</b>${p.focus}</p><p><b>策略：</b>${p.strategy}</p></div>`;
+                }
+                document.getElementById('phaseCards').innerHTML = phaseHTML;
+
+                resultContainer.classList.add('active');
+                resultContainer.scrollIntoView({ behavior: 'smooth', block: 'center' });
+
+            } catch (e) {
+                let msg = e.message;
+                const isHttps = window.location.protocol === 'https:';
+                const isFile = window.location.protocol === 'file:';
+                const isNetErr = e.message.includes('Failed to fetch') || e.message.includes('NetworkError') || e.message.includes('TypeError');
+
+                if (isNetErr) {
+                    if (isHttps) {
+                        // HTTPS环境：混合内容问题 → 显示横幅 + 错误区域下载按钮
+                        msg = '⚠️ 当前页面为HTTPS，浏览器阻止了向HTTP API的请求（混合内容限制）。\n\n✅ 请点击上方横幅或下方橙色按钮，下载离线版后用浏览器打开即可正常使用。';
+                        const banner = document.getElementById('protocolBanner');
+                        if (banner) banner.classList.add('show');
+                    } else if (isFile && apiMode === 'direct') {
+                        // file:// 直接模式：CORS问题 → 建议切换代理
+                        msg = '❌ CORS跨域错误：浏览器阻止了file://来源的HTTP请求。\n\n✅ 解决方案：\n1. 点击API URL旁的"切换到代理模式"\n2. 双击运行 start.bat 启动本地代理服务器\n3. 在浏览器打开 http://localhost:8888 使用\n\n代理模式可彻底绕开CORS限制，无需修改API服务器配置。';
+                    } else {
+                        // 代理模式或其他：网络不通
+                        msg = '无法连接到AI API。\n\n可能原因：\n1) API服务未启动或URL不正确\n2) 网络连接异常\n3) API Key无效\n\n💡 请先点击API配置区的"🔍 测试连接"按钮排查问题。';
+                    }
+                }
+                showError('生成失败：' + msg);
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = '🚀 生成学习规划';
+                progress.classList.remove('active');
+            }
+        }
+
+        function fileToBase64(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = () => resolve(reader.result.split(',')[1]);
+                reader.onerror = reject;
+                reader.readAsDataURL(file);
+            });
+        }
+
+        function downloadBlob(blob, filename) {
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url; a.download = filename;
+            document.body.appendChild(a); a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+
+        function showError(msg) {
+            const box = document.getElementById('errorBox');
+            box.textContent = msg;
+            box.classList.add('active');
+            box.scrollIntoView({ behavior: 'smooth', block: 'center' });
+
+            // 如果是HTTPS混合内容错误，显示下载按钮
+            const isHttps = window.location.protocol === 'https:';
+            const isMixErr = msg.includes('HTTPS') || msg.includes('混合内容');
+            const solutionDiv = document.getElementById('errorSolution');
+            if (solutionDiv) {
+                solutionDiv.style.display = (isHttps && isMixErr) ? 'block' : 'none';
+            }
+
+            // 在诊断框中显示排查提示
+            const diagBox = document.getElementById('diagBox');
+            const isNetErr = msg.includes('无法连接到API') || msg.includes('NetworkError') || msg.includes('Failed to fetch');
+            if (diagBox && isNetErr) {
+                diagBox.innerHTML = `
+                    🔧 <b>快速排查步骤：</b><br>
+                    1. 先点击API配置区域的 <b>"🔍 测试连接"</b> 按钮检查连通性<br>
+                    2. 确认 API URL 是否正确（应以 <code>/v1</code> 结尾）<br>
+                    3. 在浏览器中打开新标签页，访问 <code>${escapeHtml(document.getElementById('apiUrl').value)}/models</code> 看是否有响应<br>
+                    4. 确认API Key 已点击"✅ 确定"按钮确认<br>
+                    5. 如使用离线版（file://），确认API服务器支持CORS跨域请求
+                `;
+                diagBox.classList.add('show');
+            } else if (diagBox) {
+                diagBox.classList.remove('show');
+            }
+        }
+    </script>
+</body>
+</html>
