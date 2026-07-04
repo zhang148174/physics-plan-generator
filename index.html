@@ -584,8 +584,7 @@
 
         // ===== 模式检测：代理模式 vs 直接模式 =====
         let apiMode = 'direct'; // 'proxy' | 'direct'
-        const PROXY_API_URL = '/api';
-        const DIRECT_API_URL = 'https://integrate.api.nvidia.com/v1';
+        const DEFAULT_API_URL = 'https://integrate.api.nvidia.com/v1';
 
         async function detectApiMode() {
             const protocol = window.location.protocol;
@@ -628,7 +627,8 @@
             const cfgBody = document.getElementById('cfgBody');
 
             if (mode === 'proxy') {
-                urlInput.value = PROXY_API_URL;
+                // 代理模式：URL字段保持真实API地址（服务器需要用它转发请求）
+                if (!urlInput.value.trim()) urlInput.value = DEFAULT_API_URL;
                 urlInput.readOnly = false;
                 badge.className = 'mode-indicator mode-proxy';
                 badge.textContent = '🔄 代理模式';
@@ -639,7 +639,7 @@
                 // 自动展开API配置区
                 if (cfgBody) cfgBody.style.display = 'block';
             } else {
-                urlInput.value = DIRECT_API_URL;
+                if (!urlInput.value.trim()) urlInput.value = DEFAULT_API_URL;
                 urlInput.readOnly = false;
                 badge.className = 'mode-indicator mode-direct';
                 badge.textContent = '🔗 直接模式';
@@ -736,11 +736,24 @@
                 const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
                 const respText = await resp.text();
 
-                if (resp.ok) {
+                // 代理模式：服务器返回200，但需要检查JSON中的ok字段
+                let apiOk = resp.ok;
+                let apiStatus = resp.status;
+                let apiSnippet = respText.substring(0, 300);
+                if (apiMode === 'proxy' && resp.ok) {
+                    try {
+                        const data = JSON.parse(respText);
+                        apiOk = data.ok === true;
+                        apiStatus = data.status || resp.status;
+                        if (data.error) apiSnippet = data.error;
+                    } catch(e) {}
+                }
+
+                if (apiOk) {
                     showTestResult('success', `
                         ✅ <b>连接成功！</b>（耗时 ${elapsed}s）<br>
                         <div class="diag-line">请求URL: <code>${escapeHtml(testUrl)}</code></div>
-                        <div class="diag-line">状态码: <b>${resp.status} OK</b></div>
+                        <div class="diag-line">状态码: <b>${apiStatus} OK</b></div>
                         <div class="diag-line">模型: <code>${escapeHtml(model)}</code></div>
                         <div class="diag-line" style="margin-top:8px;">🎉 API服务正常运行，可以开始生成规划！</div>
                     `);
@@ -748,12 +761,12 @@
                     showTestResult('error', `
                         ❌ <b>API返回错误</b>（耗时 ${elapsed}s）<br>
                         <div class="diag-line">请求URL: <code>${escapeHtml(testUrl)}</code></div>
-                        <div class="diag-line">状态码: <b>${resp.status}</b></div>
-                        <div class="diag-line">响应内容: <code>${escapeHtml(respText.substring(0, 300))}</code></div>
+                        <div class="diag-line">状态码: <b>${apiStatus}</b></div>
+                        <div class="diag-line">响应内容: <code>${escapeHtml(apiSnippet)}</code></div>
                         <div class="diag-line" style="margin-top:8px;">
-                            ${resp.status === 401 ? '👉 可能原因：API Key无效或未授权' :
-                              resp.status === 404 ? '👉 可能原因：模型名称不正确或API路径有误' :
-                              resp.status === 500 ? '👉 可能原因：API服务器内部错误，模型可能不可用' :
+                            ${apiStatus === 401 ? '👉 可能原因：API Key无效或未授权' :
+                              apiStatus === 404 ? '👉 可能原因：模型名称不正确或API路径有误' :
+                              apiSnippet.includes('absolute URL') ? '👉 API URL格式错误：请确认填入完整地址（如 https://integrate.api.nvidia.com/v1）' :
                               '👉 请检查API Key和模型名称是否正确'}
                         </div>
                     `);
